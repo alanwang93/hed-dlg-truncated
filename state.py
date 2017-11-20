@@ -753,14 +753,14 @@ def prototype_cornell_VHRED():
     state['pause_sym'] = -1 # pause symbol <pause>
 
     state['train_dialogues'] = "data/CornellMovie/Training.dialogues.pkl"
-    state['test_dialogues'] = "data/CornellMovie/Training.dialogues.pkl"
-    state['valid_dialogues'] = "data/CornellMovie/Training.dialogues.pkl"
+    state['test_dialogues'] = "data/CornellMovie/Test.dialogues.pkl"
+    state['valid_dialogues'] = "data/CornellMovie/Validation.dialogues.pkl"
     state['dictionary'] = "data/CornellMovie/Training.dict.pkl"
     state['save_dir'] = "Output"
 
     state['max_grad_steps'] = 80
 
-    state['valid_freq'] = 5000
+    state['valid_freq'] = 2000
 
     state['prefix'] = "Cornell_"
     state['updater'] = 'adam'

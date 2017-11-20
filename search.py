@@ -59,9 +59,9 @@ def sample_wrapper(sample_logic):
             samples, costs = sample_logic(sampler, joined_context, **kwargs)
 
             # Convert back indices to list of words
-            converted_samples = map(lambda sample : sampler.model.indices_to_words(sample, exclude_end_sym=kwargs.get('n_turns', 1) == 1), samples)
+            converted_samples = list(map(lambda sample : sampler.model.indices_to_words(sample, exclude_end_sym=kwargs.get('n_turns', 1) == 1), samples))
             # Join the list of words
-            converted_samples = map(' '.join, converted_samples)
+            converted_samples = list(map(' '.join, converted_samples))
 
             if verbose:
                 for i in range(len(converted_samples)):
@@ -177,8 +177,10 @@ class Sampler(object):
             # at both session level and query level.
             # Stack only when we sampled something
             if k > 0:
+                print()
+                # map() returns an object in python3
                 context = numpy.vstack([context, \
-                                        numpy.array(map(lambda g: g[-1], gen))]).astype('int32')
+                                        numpy.array(list(map(lambda g: g[-1], gen)))]).astype('int32')
                 reversed_context = numpy.copy(context)
                 for idx in range(context.shape[1]):
                     eos_indices = numpy.where(context[:, idx] == self.model.eos_sym)[0]

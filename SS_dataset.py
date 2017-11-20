@@ -1,11 +1,16 @@
-import numpy 
+import numpy
 import os, gc
-import cPickle
+import sys
+if sys.version_info[0] < 3:
+    import cPickle
+    import Queue
+else:
+    import pickle as cPickle
+    import queue as Queue
 import copy
 import logging
 
 import threading
-import Queue
 
 import collections
 
@@ -22,7 +27,7 @@ class SSFetcher(threading.Thread):
         diter = self.parent
         self.rng.shuffle(self.indexes)
 
-        offset = 0 
+        offset = 0
         while not diter.exit_flag:
             last_batch = False
             dialogues = []
@@ -100,7 +105,7 @@ class SSIterator(object):
     def next(self):
         if self.exit_flag:
             return None
-        
+
         batch = self.queue.get()
         if not batch:
             self.exit_flag = True

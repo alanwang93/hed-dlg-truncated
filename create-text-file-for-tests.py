@@ -19,12 +19,15 @@ NOTE: It's better to use the original dialogues in plain text for building the c
 """
 
 import argparse
-import cPickle
+import sys
+if sys.version_info[0] < 3:
+    import cPickle
+else:
+    import pickle as cPickle
 import traceback
 import itertools
 import logging
 import time
-import sys
 
 import collections
 import string
@@ -48,7 +51,7 @@ def indices_to_words(idx_to_str, seq):
 
 def parse_args():
     parser = argparse.ArgumentParser("Generate text file with test dialogues")
-    
+
     parser.add_argument("model_prefix",
             help="Path to the model prefix (without _model.npz or _state.pkl)")
 
@@ -181,4 +184,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

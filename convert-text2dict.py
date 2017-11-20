@@ -12,7 +12,10 @@ import operator
 import os
 import sys
 import logging
-import cPickle
+if sys.version_info[0] < 3:
+    import cPickle
+else:
+    import pickle as cPickle
 
 from collections import Counter
 
@@ -24,7 +27,7 @@ def safe_pickle(obj, filename):
         logger.info("Overwriting %s." % filename)
     else:
         logger.info("Saving to %s." % filename)
-    
+
     with open(filename, 'wb') as f:
         cPickle.dump(obj, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
@@ -47,8 +50,8 @@ unk = "<unk>"
 if args.dict != "":
     # Load external dictionary
     assert os.path.isfile(args.dict)
-    vocab = dict([(x[0], x[1]) for x in cPickle.load(open(args.dict, "r"))])
-    
+    vocab = dict([(x[0], x[1]) for x in cPickle.load(open(args.dict, "rb"))])
+
     # Check consistency
     assert '<unk>' in vocab
     assert '</s>' in vocab
@@ -73,10 +76,10 @@ else:
             line_words.append('</s>')
 
         s = [x for x in line_words]
-        word_counter.update(s) 
+        word_counter.update(s)
 
     total_freq = sum(word_counter.values())
-    logger.info("Total word frequency in dictionary %d " % total_freq) 
+    logger.info("Total word frequency in dictionary %d " % total_freq)
 
     if args.cutoff != -1:
         logger.info("Cutoff %d" % args.cutoff)

@@ -9,7 +9,11 @@ __authors__ = ("Iulian Vlad Serban")
 import theano
 import theano.tensor as T
 import numpy as np
-import cPickle
+import sys
+if sys.version_info[0] < 3:
+    import cPickle
+else:
+    import pickle as cPickle
 import logging
 logger = logging.getLogger(__name__)
 
@@ -36,13 +40,13 @@ class EncoderDecoderBase():
     def __init__(self, state, rng, parent):
         self.rng = rng
         self.parent = parent
-        
+
         self.state = state
         self.__dict__.update(state)
-        
+
         self.dialogue_rec_activation = eval(self.dialogue_rec_activation)
         self.sent_rec_activation = eval(self.sent_rec_activation)
-         
+
         self.params = []
 
 class UtteranceEncoder(EncoderDecoderBase):
@@ -60,7 +64,7 @@ class UtteranceEncoder(EncoderDecoderBase):
         self.W_in = add_to_params(self.params, theano.shared(value=NormalInit(self.rng, self.rankdim, self.qdim_encoder), name='W_in'+self.name))
         self.W_hh = add_to_params(self.params, theano.shared(value=OrthogonalInit(self.rng, self.qdim_encoder, self.qdim_encoder), name='W_hh'+self.name))
         self.b_hh = add_to_params(self.params, theano.shared(value=np.zeros((self.qdim_encoder,), dtype='float32'), name='b_hh'+self.name))
-        
+
         if self.utterance_encoder_gating == "GRU":
             self.W_in_r = add_to_params(self.params, theano.shared(value=NormalInit(self.rng, self.rankdim, self.qdim_encoder), name='W_in_r'+self.name))
             self.W_in_z = add_to_params(self.params, theano.shared(value=NormalInit(self.rng, self.rankdim, self.qdim_encoder), name='W_in_z'+self.name))
@@ -79,7 +83,7 @@ class UtteranceEncoder(EncoderDecoderBase):
 
         if m_t.ndim >= 1:
             m_t = m_t.dimshuffle(0, 'x')
-        
+
         # If 'reset_utterance_encoder_at_end_of_utterance' flag is on,
         # then reset the hidden state if this is an end-of-utterance token
         # as given by m_t
@@ -98,7 +102,7 @@ class UtteranceEncoder(EncoderDecoderBase):
         h_tm1 = next(args)
 
         if m_t.ndim >= 1:
-            m_t = m_t.dimshuffle(0, 'x') 
+            m_t = m_t.dimshuffle(0, 'x')
 
         # If 'reset_utterance_encoder_at_end_of_utterance' flag is on,
         # then reset the hidden state if this is an end-of-utterance token
@@ -112,7 +116,7 @@ class UtteranceEncoder(EncoderDecoderBase):
         z_t = T.nnet.sigmoid(T.dot(x_t, self.W_in_z) + T.dot(hr_tm1, self.W_hh_z) + self.b_z)
         h_tilde = self.sent_rec_activation(T.dot(x_t, self.W_in) + T.dot(r_t * hr_tm1, self.W_hh) + self.b_hh)
         h_t = (np.float32(1.0) - z_t) * hr_tm1 + z_t * h_tilde
-        
+
         # return both reset state and non-reset state
         return [h_t, r_t, z_t, h_tilde]
 
@@ -120,29 +124,29 @@ class UtteranceEncoder(EncoderDecoderBase):
         one_step = False
         if len(kwargs):
             one_step = True
-         
-        # if x.ndim == 2 then 
+
+        # if x.ndim == 2 then
         # x = (n_steps, batch_size)
         if x.ndim == 2:
             batch_size = x.shape[1]
         # else x = (word_1, word_2, word_3, ...)
         # or x = (last_word_1, last_word_2, last_word_3, ..)
-        # in this case batch_size is 
+        # in this case batch_size is
         else:
             batch_size = 1
 
-        # if it is not one_step then we initialize everything to previous state or zero  
+        # if it is not one_step then we initialize everything to previous state or zero
         if not one_step:
             if prev_state:
                 h_0 = prev_state
             else:
                 h_0 = T.alloc(np.float32(0), batch_size, self.qdim_encoder)
 
-        # in sampling mode (i.e. one step) we require 
+        # in sampling mode (i.e. one step) we require
         else:
             # in this case x.ndim != 2
             assert x.ndim != 2
-            assert 'prev_h' in kwargs 
+            assert 'prev_h' in kwargs
             h_0 = kwargs['prev_h']
 
         # We extract the word embeddings from the word indices
@@ -151,12 +155,12 @@ class UtteranceEncoder(EncoderDecoderBase):
             xmask = T.neq(x, self.eos_sym)
 
         # We add ones at the the beginning of the reset vector to align the resets with y_training:
-        # for example for 
+        # for example for
         # training_x =        </s> a b c </s> d
         # xmask =               0  1 1 1  0   1
         # rolled_xmask =        1  0 1 1  1   0 1
         # Thus, we ensure that the no information in the encoder is carried from input "</s>" to "a",
-        # or from "</s>" to "d". 
+        # or from "</s>" to "d".
         # Now, the state at exactly </s> always reflects the previous utterance encoding.
         # Since the dialogue encoder uses xmask, and inputs it when xmask=0, it will input the utterance encoding
         # exactly on the </s> state.
@@ -181,7 +185,7 @@ class UtteranceEncoder(EncoderDecoderBase):
 
 
         # Run through all the utterances (encode everything)
-        if not one_step: 
+        if not one_step:
             _res, _ = theano.scan(f_enc,
                               sequences=[xe, rolled_xmask],\
                               outputs_info=o_enc_info)
@@ -219,16 +223,16 @@ class DCGMEncoder(EncoderDecoderBase):
 
     def mean_step(self, x_t, m_t, *args):
         args = iter(args)
-        
-        # already computed avg 
+
+        # already computed avg
         avg_past = next(args)
         n_past = next(args)
 
         if m_t.ndim >= 1:
-            m_t = m_t.dimshuffle(0, 'x') 
-        
+            m_t = m_t.dimshuffle(0, 'x')
+
         # reset avg
-        avg_past_r = m_t * avg_past 
+        avg_past_r = m_t * avg_past
         n_past_r = m_t.T * n_past
 
 
@@ -256,7 +260,7 @@ class DCGMEncoder(EncoderDecoderBase):
         else:
             batch_size = 1
 
-        # if it is not one_step then we initialize everything to previous state or zero  
+        # if it is not one_step then we initialize everything to previous state or zero
         if not one_step:
             if prev_state:
                 avg_0, n_0 = prev_state
@@ -264,15 +268,15 @@ class DCGMEncoder(EncoderDecoderBase):
                 avg_0 = T.alloc(np.float32(0), batch_size, self.rankdim)
                 n_0 = T.alloc(np.float32(0), batch_size)
 
-        # in sampling mode (i.e. one step) we require 
+        # in sampling mode (i.e. one step) we require
         else:
             # in this case x.ndim != 2
             assert x.ndim != 2
-            assert 'prev_avg' in kwargs 
+            assert 'prev_avg' in kwargs
             avg_0 = kwargs['prev_avg']
 
-        
-        # in sampling mode (i.e. one step) we require 
+
+        # in sampling mode (i.e. one step) we require
         xe = self.approx_embedder(x)
         if xmask == None:
             xmask = T.neq(x, self.eos_sym)
@@ -285,18 +289,18 @@ class DCGMEncoder(EncoderDecoderBase):
             rolled_xmask = T.concatenate([ones_scalar, xmask])
 
         f_enc = self.mean_step
-        o_enc_info = [avg_0, n_0] 
+        o_enc_info = [avg_0, n_0]
 
 
 
        # Run through all the utterances (encode everything)
-        if not one_step: 
+        if not one_step:
             _res, _ = theano.scan(f_enc,
                               sequences=[xe, rolled_xmask],\
                               outputs_info=o_enc_info)
         else: # Make just one step further
             _res, _ = f_enc(xe, rolled_xmask, [avg_0, n_0])
-        
+
         avg, n = _res[0], _res[1]
 
         # Linear activation
@@ -319,7 +323,7 @@ class DialogEncoder(EncoderDecoderBase):
         """ Context weights """
 
         if self.bidirectional_utterance_encoder:
-            # With the bidirectional flag, the dialog encoder gets input 
+            # With the bidirectional flag, the dialog encoder gets input
             # from both the forward and backward utterance encoders, hence it is double qdim_encoder
             input_dim = self.qdim_encoder * 2
         else:
@@ -333,7 +337,7 @@ class DialogEncoder(EncoderDecoderBase):
             self.bs_deep_input = add_to_params(self.params, theano.shared(value=np.zeros((self.sdim,), dtype='float32'), name='bs_deep_input'+self.name))
             transformed_input_dim = self.sdim
 
-        
+
         self.Ws_in = add_to_params(self.params, theano.shared(value=NormalInit(self.rng, transformed_input_dim, self.sdim), name='Ws_in'+self.name))
         self.Ws_hh = add_to_params(self.params, theano.shared(value=OrthogonalInit(self.rng, self.sdim, self.sdim), name='Ws_hh'+self.name))
         self.bs_hh = add_to_params(self.params, theano.shared(value=np.zeros((self.sdim,), dtype='float32'), name='bs_hh'+self.name))
@@ -346,7 +350,7 @@ class DialogEncoder(EncoderDecoderBase):
             self.Ws_hh_z = add_to_params(self.params, theano.shared(value=OrthogonalInit(self.rng, self.sdim, self.sdim), name='Ws_hh_z'+self.name))
             self.bs_z = add_to_params(self.params, theano.shared(value=np.zeros((self.sdim,), dtype='float32'), name='bs_z'+self.name))
             self.bs_r = add_to_params(self.params, theano.shared(value=np.zeros((self.sdim,), dtype='float32'), name='bs_r'+self.name))
-    
+
     def plain_dialogue_step(self, h_t, m_t, hs_tm1):
         if m_t.ndim >= 1:
             m_t = m_t.dimshuffle(0, 'x')
@@ -358,7 +362,7 @@ class DialogEncoder(EncoderDecoderBase):
 
         hs_tilde = self.dialogue_rec_activation(T.dot(transformed_h_t, self.Ws_in) + T.dot(hs_tm1, self.Ws_hh) + self.bs_hh)
 
-        hs_t = (m_t) * hs_tm1 + (1 - m_t) * hs_tilde 
+        hs_t = (m_t) * hs_tm1 + (1 - m_t) * hs_tilde
         return hs_t
 
     def GRU_dialogue_step(self, h_t, m_t, hs_tm1):
@@ -371,10 +375,10 @@ class DialogEncoder(EncoderDecoderBase):
         zs_t = T.nnet.sigmoid(T.dot(transformed_h_t, self.Ws_in_z) + T.dot(hs_tm1, self.Ws_hh_z) + self.bs_z)
         hs_tilde = self.dialogue_rec_activation(T.dot(transformed_h_t, self.Ws_in) + T.dot(rs_t * hs_tm1, self.Ws_hh) + self.bs_hh)
         hs_update = (np.float32(1.) - zs_t) * hs_tm1 + zs_t * hs_tilde
-         
+
         if m_t.ndim >= 1:
             m_t = m_t.dimshuffle(0, 'x')
-         
+
         hs_t = (m_t) * hs_tm1 + (1 - m_t) * hs_update
         return hs_t, hs_tilde, rs_t, zs_t
 
@@ -382,25 +386,25 @@ class DialogEncoder(EncoderDecoderBase):
         one_step = False
         if len(kwargs):
             one_step = True
-         
-        # if x.ndim == 2 then 
+
+        # if x.ndim == 2 then
         # x = (n_steps, batch_size)
         if x.ndim == 2:
             batch_size = x.shape[1]
         # else x = (word_1, word_2, word_3, ...)
         # or x = (last_word_1, last_word_2, last_word_3, ..)
-        # in this case batch_size is 
+        # in this case batch_size is
         else:
             batch_size = 1
-        
-        # if it is not one_step then we initialize everything to 0  
+
+        # if it is not one_step then we initialize everything to 0
         if not one_step:
             if prev_state:
                 hs_0 = prev_state
             else:
                 hs_0 = T.alloc(np.float32(0), batch_size, self.sdim)
 
-        # in sampling mode (i.e. one step) we require 
+        # in sampling mode (i.e. one step) we require
         else:
             # in this case x.ndim != 2
             assert x.ndim != 2
@@ -408,7 +412,7 @@ class DialogEncoder(EncoderDecoderBase):
             hs_0 = kwargs['prev_hs']
 
         if xmask == None:
-            xmask = T.neq(x, self.eos_sym)       
+            xmask = T.neq(x, self.eos_sym)
 
         if self.dialogue_encoder_gating == "GRU":
             f_hier = self.GRU_dialogue_step
@@ -416,7 +420,7 @@ class DialogEncoder(EncoderDecoderBase):
         else:
             f_hier = self.plain_dialogue_step
             o_hier_info = [hs_0]
-        
+
         # The hs sequence is based on the original mask
         if not one_step:
             _res,  _ = theano.scan(f_hier,\
@@ -431,7 +435,7 @@ class DialogEncoder(EncoderDecoderBase):
         else:
             hs = _res
 
-        return hs 
+        return hs
 
     def __init__(self, state, rng, parent, name):
         EncoderDecoderBase.__init__(self, state, rng, parent)
@@ -460,32 +464,32 @@ class DialogDummyEncoder(EncoderDecoderBase):
         if self.deep_direct_connection:
             transformed_h_t = self.dialogue_rec_activation(T.dot(h_t, self.Ws_dummy_deep_input) + self.bs_dummy_deep_input)
 
-        hs_t = (m_t) * hs_tm1 + (1 - m_t) * transformed_h_t 
+        hs_t = (m_t) * hs_tm1 + (1 - m_t) * transformed_h_t
         return hs_t
 
     def build_encoder(self, h, x, xmask=None, prev_state=None, **kwargs):
         one_step = False
         if len(kwargs):
             one_step = True
-         
-        # if x.ndim == 2 then 
+
+        # if x.ndim == 2 then
         # x = (n_steps, batch_size)
         if x.ndim == 2:
             batch_size = x.shape[1]
         # else x = (word_1, word_2, word_3, ...)
         # or x = (last_word_1, last_word_2, last_word_3, ..)
-        # in this case batch_size is 
+        # in this case batch_size is
         else:
             batch_size = 1
-        
-        # if it is not one_step then we initialize everything to 0  
+
+        # if it is not one_step then we initialize everything to 0
         if not one_step:
             if prev_state:
                 hs_0 = prev_state
             else:
-                hs_0 = T.alloc(np.float32(0), batch_size, self.inp_dim) 
+                hs_0 = T.alloc(np.float32(0), batch_size, self.inp_dim)
 
-        # in sampling mode (i.e. one step) we require 
+        # in sampling mode (i.e. one step) we require
         else:
             # in this case x.ndim != 2
             assert x.ndim != 2
@@ -497,7 +501,7 @@ class DialogDummyEncoder(EncoderDecoderBase):
 
         f_hier = self.plain_dialogue_step
         o_hier_info = [hs_0]
-        
+
         # The hs sequence is based on the original mask
         if not one_step:
             _res,  _ = theano.scan(f_hier,\
@@ -512,7 +516,7 @@ class DialogDummyEncoder(EncoderDecoderBase):
         else:
             hs = _res
 
-        return hs 
+        return hs
 
     def __init__(self, state, rng, parent, inp_dim, name=''):
         self.inp_dim = inp_dim
@@ -543,9 +547,9 @@ class UtteranceDecoder(EncoderDecoderBase):
         self.trng = MRG_RandomStreams(self.seed)
         self.init_params()
 
-    def init_params(self): 
+    def init_params(self):
         if self.direct_connection_between_encoders_and_decoder:
-            # When there is a direct connection between encoder and decoder, 
+            # When there is a direct connection between encoder and decoder,
             # the input has dimensionality sdim + qdim_decoder if forward encoder, and
             # sdim + 2 x qdim_decoder for bidirectional encoder
             if self.bidirectional_utterance_encoder:
@@ -553,7 +557,7 @@ class UtteranceDecoder(EncoderDecoderBase):
             else:
                 self.input_dim = self.sdim + self.qdim_encoder
         else:
-            # When there is no connection between encoder and decoder, 
+            # When there is no connection between encoder and decoder,
             # the input has dimensionality sdim
             self.input_dim = self.sdim
 
@@ -577,10 +581,10 @@ class UtteranceDecoder(EncoderDecoderBase):
 
         self.Wd_hh = add_to_params(self.params, theano.shared(value=OrthogonalInit(self.rng, self.qdim_decoder, self.qdim_decoder), name='Wd_hh'))
         self.bd_hh = add_to_params(self.params, theano.shared(value=np.zeros((self.qdim_decoder,), dtype='float32'), name='bd_hh'))
-        self.Wd_in = add_to_params(self.params, theano.shared(value=NormalInit(self.rng, self.rankdim, self.qdim_decoder), name='Wd_in')) 
+        self.Wd_in = add_to_params(self.params, theano.shared(value=NormalInit(self.rng, self.rankdim, self.qdim_decoder), name='Wd_in'))
 
-        # We only include the initial hidden state if the utterance decoder is NOT reset 
-        # and if its NOT a collapsed model (i.e. collapsed to standard RNN). 
+        # We only include the initial hidden state if the utterance decoder is NOT reset
+        # and if its NOT a collapsed model (i.e. collapsed to standard RNN).
         # In the collapsed model, we always initialize hidden state to zero.
         if (not self.collaps_to_standard_rnn) and (self.reset_utterance_decoder_at_end_of_utterance):
             self.Wd_s_0 = add_to_params(self.params, theano.shared(value=NormalInit(self.rng, self.input_dim, self.complete_hidden_state_size), name='Wd_s_0'))
@@ -593,7 +597,7 @@ class UtteranceDecoder(EncoderDecoderBase):
             self.Wd_hh_z = add_to_params(self.params, theano.shared(value=OrthogonalInit(self.rng, self.qdim_decoder, self.qdim_decoder), name='Wd_hh_z'))
             self.bd_r = add_to_params(self.params, theano.shared(value=np.zeros((self.qdim_decoder,), dtype='float32'), name='bd_r'))
             self.bd_z = add_to_params(self.params, theano.shared(value=np.zeros((self.qdim_decoder,), dtype='float32'), name='bd_z'))
-        
+
             if self.decoder_bias_type == 'all':
                 self.Wd_s_q = add_to_params(self.params, theano.shared(value=NormalInit(self.rng, self.input_dim, self.qdim_decoder), name='Wd_s_q'))
                 self.Wd_s_z = add_to_params(self.params, theano.shared(value=NormalInit(self.rng, self.input_dim, self.qdim_decoder), name='Wd_s_z'))
@@ -663,11 +667,11 @@ class UtteranceDecoder(EncoderDecoderBase):
                 self.Wd_sel_h = add_to_params(self.params, \
                                           theano.shared(value=NormalInit(self.rng, self.qdim_decoder, self.input_dim), \
                                                         name='Wd_sel_h'))
-         
 
 
 
-        ######################   
+
+        ######################
         # Output layer weights
         ######################
         if self.maxout_out:
@@ -680,15 +684,15 @@ class UtteranceDecoder(EncoderDecoderBase):
             out_target_dim = self.rankdim
 
         self.Wd_out = add_to_params(self.params, theano.shared(value=NormalInit(self.rng, self.qdim_decoder, out_target_dim), name='Wd_out'))
-         
+
         # Set up deep output
         if self.deep_out:
             self.Wd_e_out = add_to_params(self.params, theano.shared(value=NormalInit(self.rng, self.rankdim, out_target_dim), name='Wd_e_out'))
             self.bd_e_out = add_to_params(self.params, theano.shared(value=np.zeros((out_target_dim,), dtype='float32'), name='bd_e_out'))
-             
-            if self.decoder_bias_type != 'first': 
+
+            if self.decoder_bias_type != 'first':
                 self.Wd_s_out = add_to_params(self.params, theano.shared(value=NormalInit(self.rng, self.input_dim, out_target_dim), name='Wd_s_out'))
-   
+
     def build_output_layer(self, hs, xd, hd):
         if self.utterance_decoder_gating == "LSTM":
             if hd.ndim != 2:
@@ -697,21 +701,21 @@ class UtteranceDecoder(EncoderDecoderBase):
                 pre_activ = T.dot(hd[:, 0:self.qdim_decoder], self.Wd_out)
         else:
             pre_activ = T.dot(hd, self.Wd_out)
-        
+
         if self.deep_out:
             pre_activ += T.dot(xd, self.Wd_e_out) + self.bd_e_out
-            
+
             if self.decoder_bias_type != 'first':
                 pre_activ += T.dot(hs, self.Wd_s_out)
                 # ^ if bias all, bias the deep output
-         
+
         if self.maxout_out:
             pre_activ = Maxout(2)(pre_activ)
-         
+
         return pre_activ
 
     def build_next_probs_predictor(self, inp, x, prev_state):
-        """ 
+        """
         Return output probabilities given prev_words x, hierarchical pass hs, and previous hd
         hs should always be the same (and should not be updated).
         """
@@ -720,28 +724,28 @@ class UtteranceDecoder(EncoderDecoderBase):
     def approx_embedder(self, x):
         # Here we use the same embeddings learnt in the encoder.. !!!
         return self.word_embedding_param[x]
-     
+
     def output_softmax(self, pre_activ):
         # returns a (timestep, bs, idim) matrix (huge)
         return SoftMax(T.dot(pre_activ, self.Wd_emb.T) + self.bd_out)
-    
+
     def output_nce(self, pre_activ, y, y_hat):
         # returns a (timestep, bs, pos + neg) matrix (very small)
         target_embedding = self.Wd_emb[y]
         # ^ target embedding is (timestep x bs, rankdim)
         noise_embedding = self.Wd_emb[y_hat]
         # ^ noise embedding is (10, timestep x bs, rankdim)
-        
+
         # pre_activ is (timestep x bs x rankdim)
         pos_scores = (target_embedding * pre_activ).sum(2)
         neg_scores = (noise_embedding * pre_activ).sum(3)
- 
+
         pos_scores += self.bd_out[y]
         neg_scores += self.bd_out[y_hat]
-         
+
         pos_noise = self.parent.t_noise_probs[y] * 10
         neg_noise = self.parent.t_noise_probs[y_hat] * 10
-        
+
         pos_scores = - T.log(T.nnet.sigmoid(pos_scores - T.log(pos_noise)))
         neg_scores = - T.log(1 - T.nnet.sigmoid(neg_scores - T.log(neg_noise))).sum(0)
         return pos_scores + neg_scores
@@ -758,7 +762,7 @@ class UtteranceDecoder(EncoderDecoderBase):
         else:
             assert not y
             assert prev_state
-         
+
         # if mode == EVALUATION
         #   xd = (timesteps, batch_size, qdim_decoder)
         #
@@ -776,7 +780,7 @@ class UtteranceDecoder(EncoderDecoderBase):
 
         if not xmask:
             xmask = T.neq(x, self.eos_sym)
-        
+
         # we must zero out the </s> embedding
         # i.e. the embedding x_{-1} is the 0 vector
         # as well as hd_{-1} which will be reseted in the scan functions
@@ -807,17 +811,17 @@ class UtteranceDecoder(EncoderDecoderBase):
             f_dec = self.plain_step
             o_dec_info = [hd_init]
             if self.decoder_bias_type == "selective":
-                o_dec_info += [None, None] 
-         
+                o_dec_info += [None, None]
+
         # If the mode of the decoder is EVALUATION
         # then we evaluate by default all the utterances
         # xd - i.e. xd.ndim == 3, xd = (timesteps, batch_size, qdim_decoder)
-        if mode == UtteranceDecoder.EVALUATION or mode == UtteranceDecoder.NCE: 
+        if mode == UtteranceDecoder.EVALUATION or mode == UtteranceDecoder.NCE:
             _res, _ = theano.scan(f_dec,
                               sequences=[xd, xmask, decoder_inp],\
                               outputs_info=o_dec_info)
         # else we evaluate only one step of the recurrence using the
-        # previous hidden states and the previous computed hierarchical 
+        # previous hidden states and the previous computed hierarchical
         # states.
         else:
             _res = f_dec(xd, xmask, decoder_inp, prev_state)
@@ -848,19 +852,19 @@ class UtteranceDecoder(EncoderDecoderBase):
         elif mode == UtteranceDecoder.BEAM_SEARCH:
             return self.output_softmax(pre_activ), hd
 
-        # SAMPLING    : Return a vector of n_sample from the output layer 
+        # SAMPLING    : Return a vector of n_sample from the output layer
         #                 + log probabilities + the new hidden states
         elif mode == UtteranceDecoder.SAMPLING:
             outputs = self.output_softmax(pre_activ)
             if outputs.ndim == 1:
-                outputs = outputs.dimshuffle('x', 0) 
+                outputs = outputs.dimshuffle('x', 0)
             sample = self.trng.multinomial(pvals=outputs, dtype='int64').argmax(axis=-1)
             if outputs.ndim == 1:
-                sample = sample[0] 
-            log_prob = -T.log(T.diag(outputs.T[sample])) 
+                sample = sample[0]
+            log_prob = -T.log(T.diag(outputs.T[sample]))
             return sample, log_prob, hd
 
-    def LSTM_step(self, xd_t, m_t, decoder_inp_t, hd_tm1): 
+    def LSTM_step(self, xd_t, m_t, decoder_inp_t, hd_tm1):
         if m_t.ndim >= 1:
             m_t = m_t.dimshuffle(0, 'x')
 
@@ -871,7 +875,7 @@ class UtteranceDecoder(EncoderDecoderBase):
 
 
         # Unlike the GRU gating function, the LSTM gating function needs to keep track of two vectors:
-        # the output state and the cell state. To align the implementation with the GRU, we store 
+        # the output state and the cell state. To align the implementation with the GRU, we store
         # both of these two states in a single vector for every time step, split them up for computation and
         # then concatenate them back together at the end.
 
@@ -879,9 +883,9 @@ class UtteranceDecoder(EncoderDecoderBase):
         # By convention, we assume that the output state is always first, and the cell state second.
         hd_tm1_tilde = hd_tm1[:, 0:self.qdim_decoder]
         cd_tm1_tilde = hd_tm1[:, self.qdim_decoder:self.qdim_decoder*2]
-  
+
         # In the 'selective' decoder bias type each hidden state of the decoder
-        # RNN receives the decoder_inp_t modified by the selective bias -> decoder_inpr_t 
+        # RNN receives the decoder_inp_t modified by the selective bias -> decoder_inpr_t
         if self.decoder_bias_type == 'selective':
             rd_sel_t = T.nnet.sigmoid(T.dot(xd_t, self.Wd_sel_e) + T.dot(hd_tm1_tilde, self.Wd_sel_h) + T.dot(cd_tm1_tilde, self.Wd_sel_c) + T.dot(decoder_inp_t, self.Wd_sel_s) + self.bd_sel)
             decoder_inpr_t = rd_sel_t * decoder_inp_t
@@ -902,7 +906,7 @@ class UtteranceDecoder(EncoderDecoderBase):
             # Concatenate output state and cell state into one vector
             hd_t = T.concatenate([od_t*self.sent_rec_activation(cd_t), cd_t], axis=1)
             output = (hd_t, decoder_inpr_t, rd_sel_t)
-        
+
         # In the 'all' decoder bias type each hidden state of the decoder
         # RNN receives the decoder_inp_t vector as bias without modification
         elif self.decoder_bias_type == 'all':
@@ -940,7 +944,7 @@ class UtteranceDecoder(EncoderDecoderBase):
 
         return output
 
-    def GRU_step(self, xd_t, m_t, decoder_inp_t, hd_tm1): 
+    def GRU_step(self, xd_t, m_t, decoder_inp_t, hd_tm1):
         if m_t.ndim >= 1:
             m_t = m_t.dimshuffle(0, 'x')
 
@@ -950,11 +954,11 @@ class UtteranceDecoder(EncoderDecoderBase):
             hd_tm1 = (m_t) * hd_tm1 + (1 - m_t) * T.tanh(T.dot(decoder_inp_t, self.Wd_s_0) + self.bd_s_0)
 
         # In the 'selective' decoder bias type each hidden state of the decoder
-        # RNN receives the decoder_inp_t modified by the selective bias -> decoder_inpr_t 
+        # RNN receives the decoder_inp_t modified by the selective bias -> decoder_inpr_t
         if self.decoder_bias_type == 'selective':
             rd_sel_t = T.nnet.sigmoid(T.dot(xd_t, self.Wd_sel_e) + T.dot(hd_tm1, self.Wd_sel_h) + T.dot(decoder_inp_t, self.Wd_sel_s) + self.bd_sel)
             decoder_inpr_t = rd_sel_t * decoder_inp_t
-             
+
             rd_t = T.nnet.sigmoid(T.dot(xd_t, self.Wd_in_r) + T.dot(hd_tm1, self.Wd_hh_r) + self.bd_r)
             zd_t = T.nnet.sigmoid(T.dot(xd_t, self.Wd_in_z) + T.dot(hd_tm1, self.Wd_hh_z) + self.bd_z)
             hd_tilde = self.sent_rec_activation(T.dot(xd_t, self.Wd_in) \
@@ -962,22 +966,22 @@ class UtteranceDecoder(EncoderDecoderBase):
                                         + T.dot(decoder_inpr_t, self.Wd_s_q) \
                                         + self.bd_hh)
 
-            hd_t = (np.float32(1.) - zd_t) * hd_tm1 + zd_t * hd_tilde 
+            hd_t = (np.float32(1.) - zd_t) * hd_tm1 + zd_t * hd_tilde
             output = (hd_t, decoder_inpr_t, rd_sel_t, rd_t, zd_t, hd_tilde)
-        
+
         # In the 'all' decoder bias type each hidden state of the decoder
         # RNN receives the decoder_inp_t vector as bias without modification
         elif self.decoder_bias_type == 'all':
-        
+
             rd_t = T.nnet.sigmoid(T.dot(xd_t, self.Wd_in_r) + T.dot(hd_tm1, self.Wd_hh_r) + T.dot(decoder_inp_t, self.Wd_s_r) + self.bd_r)
             zd_t = T.nnet.sigmoid(T.dot(xd_t, self.Wd_in_z) + T.dot(hd_tm1, self.Wd_hh_z) + T.dot(decoder_inp_t, self.Wd_s_z) + self.bd_z)
             hd_tilde = self.sent_rec_activation(T.dot(xd_t, self.Wd_in) \
                                         + T.dot(rd_t * hd_tm1, self.Wd_hh) \
                                         + T.dot(decoder_inp_t, self.Wd_s_q) \
                                         + self.bd_hh)
-            hd_t = (np.float32(1.) - zd_t) * hd_tm1 + zd_t * hd_tilde 
+            hd_t = (np.float32(1.) - zd_t) * hd_tm1 + zd_t * hd_tilde
             output = (hd_t, rd_t, zd_t, hd_tilde)
-                 
+
         else:
             # Do not bias the decoder at every time, instead,
             # force it to store very useful information in the first state.
@@ -985,15 +989,15 @@ class UtteranceDecoder(EncoderDecoderBase):
             zd_t = T.nnet.sigmoid(T.dot(xd_t, self.Wd_in_z) + T.dot(hd_tm1, self.Wd_hh_z) + self.bd_z)
             hd_tilde = self.sent_rec_activation(T.dot(xd_t, self.Wd_in) \
                                         + T.dot(rd_t * hd_tm1, self.Wd_hh) \
-                                        + self.bd_hh) 
+                                        + self.bd_hh)
             hd_t = (np.float32(1.) - zd_t) * hd_tm1 + zd_t * hd_tilde
             output = (hd_t, rd_t, zd_t, hd_tilde)
         return output
-    
+
     def plain_step(self, xd_t, m_t, decoder_inp_t, hd_tm1):
         if m_t.ndim >= 1:
             m_t = m_t.dimshuffle(0, 'x')
-        
+
         # If model collapses to standard RNN, or the 'reset_utterance_decoder_at_end_of_utterance' flag is off,
         # then never reset decoder. Otherwise, reset the decoder at every utterance turn.
         if (not self.collaps_to_standard_rnn) and (self.reset_utterance_decoder_at_end_of_utterance):
@@ -1016,7 +1020,7 @@ class UtteranceDecoder(EncoderDecoderBase):
         elif self.decoder_bias_type == 'selective':
             rd_sel_t = T.nnet.sigmoid(T.dot(xd_t, self.Wd_sel_e) + T.dot(hd_tm1, self.Wd_sel_h) + T.dot(decoder_inp_t, self.Wd_sel_s) + self.bd_sel)
             decoder_inpr_t = rd_sel_t * decoder_inp_t
-             
+
             hd_t = self.sent_rec_activation( T.dot(xd_t, self.Wd_in) \
                                         + T.dot(hd_tm1, self.Wd_hh) \
                                         + T.dot(decoder_inpr_t, self.Wd_s_q) \
@@ -1030,16 +1034,16 @@ class DialogLevelLatentEncoder(EncoderDecoderBase):
     """
     This class operates on hidden states at the dialogue level (inter-utterance level).
     At the end of each utterance, the input from the utterance encoder(s) is transferred
-    to its hidden state. This hidden state is then transformed to output a mean and a (diagonal) 
+    to its hidden state. This hidden state is then transformed to output a mean and a (diagonal)
     covariance matrix, which parametrizes a latent Gaussian variable.
     """
 
     def init_params(self):
         """ Context weights """
-        
+
         self.Wl_deep_input = add_to_params(self.params, theano.shared(value=NormalInit(self.rng, self.input_dim, self.latent_dim), name='Wl_deep_input'+self.name))
         self.bl_deep_input = add_to_params(self.params, theano.shared(value=np.zeros((self.latent_dim,), dtype='float32'), name='bl_deep_input'+self.name))
-        
+
         self.Wl_in = add_to_params(self.params, theano.shared(value=NormalInit(self.rng, self.latent_dim, self.latent_dim), name='Wl_in'+self.name))
         self.bl_in = add_to_params(self.params, theano.shared(value=np.zeros((self.latent_dim,), dtype='float32'), name='bl_in'+self.name))
 
@@ -1069,7 +1073,7 @@ class DialogLevelLatentEncoder(EncoderDecoderBase):
         if len(kwargs):
             one_step = True
 
-        # if x.ndim == 2 then 
+        # if x.ndim == 2 then
         # x = (n_steps, batch_size)
         if x.ndim == 2:
             batch_size = x.shape[1]
@@ -1077,8 +1081,8 @@ class DialogLevelLatentEncoder(EncoderDecoderBase):
         # or x = (last_word_1, last_word_2, last_word_3, ..)
         else:
             batch_size = 1
-        
-        # if it is not one_step then we initialize everything to 0  
+
+        # if it is not one_step then we initialize everything to 0
         if not one_step:
             if prev_state:
                 hs_0 = prev_state
@@ -1120,7 +1124,7 @@ class DialogLevelLatentEncoder(EncoderDecoderBase):
         hs_var = T.nnet.softplus((T.dot(hs, self.Wl_std_out) + self.bl_std_out)) * self.scale_latent_variable_variances
 
 
-        return [hs, hs_mean, hs_var] 
+        return [hs, hs_mean, hs_var]
 
     def __init__(self, state, input_dim, latent_dim, rng, parent, name):
         EncoderDecoderBase.__init__(self, state, rng, parent)
@@ -1149,7 +1153,7 @@ class DialogLevelRollLeft(EncoderDecoderBase):
 
         assert not one_step
 
-        # if x.ndim == 2 then 
+        # if x.ndim == 2 then
         # x = (n_steps, batch_size)
         if x.ndim == 2:
             batch_size = x.shape[1]
@@ -1157,12 +1161,12 @@ class DialogLevelRollLeft(EncoderDecoderBase):
         # or x = (last_word_1, last_word_2, last_word_3, ..)
         else:
             batch_size = 1
-        
-        # if it is not one_step then we initialize everything to 0  
+
+        # if it is not one_step then we initialize everything to 0
         if not one_step:
             hs_0 = h[-1]
 
-        # in sampling mode (i.e. one step) we require 
+        # in sampling mode (i.e. one step) we require
         else:
             # in this case x.ndim != 2
             assert x.ndim != 2
@@ -1170,7 +1174,7 @@ class DialogLevelRollLeft(EncoderDecoderBase):
             hs_0 = kwargs['prev_hs']
 
         if xmask == None:
-            xmask = T.neq(x, self.eos_sym)       
+            xmask = T.neq(x, self.eos_sym)
 
         f_hier = self.plain_dialogue_step
         o_hier_info = [hs_0]
@@ -1249,21 +1253,21 @@ class DialogEncoderDecoder(Model):
 
     def compute_updates(self, training_cost, params):
         updates = []
-         
+
         grads = T.grad(training_cost, params)
         grads = OrderedDict(zip(params, grads))
 
         # Gradient clipping
         c = numpy.float32(self.cutoff)
         clip_grads = []
-        
+
         norm_gs = T.sqrt(sum(T.sum(g ** 2) for p, g in grads.items()))
         normalization = T.switch(T.ge(norm_gs, c), c / norm_gs, np.float32(1.))
         notfinite = T.or_(T.isnan(norm_gs), T.isinf(norm_gs))
-         
+
         for p, g in grads.items():
             clip_grads.append((p, T.switch(notfinite, numpy.float32(.1) * p, g * normalization)))
-        
+
         grads = OrderedDict(clip_grads)
 
         if self.initialize_from_pretrained_word_embeddings and self.fix_pretrained_word_embeddings:
@@ -1278,7 +1282,7 @@ class DialogEncoderDecoder(Model):
             logger.debug("Will train all word embeddings")
 
         if self.updater == 'adagrad':
-            updates = Adagrad(grads, self.lr)  
+            updates = Adagrad(grads, self.lr)
         elif self.updater == 'sgd':
             raise Exception("Sgd not implemented!")
         elif self.updater == 'adadelta':
@@ -1288,23 +1292,23 @@ class DialogEncoderDecoder(Model):
         elif self.updater == 'adam':
             updates = Adam(grads, self.lr)
         else:
-            raise Exception("Updater not understood!") 
+            raise Exception("Updater not understood!")
 
         return updates
-  
+
     # Batch training function.
     def build_train_function(self):
         if not hasattr(self, 'train_fn'):
             # Compile functions
             logger.debug("Building train function")
-                
-            self.train_fn = theano.function(inputs=[self.x_data, self.x_data_reversed, 
+
+            self.train_fn = theano.function(inputs=[self.x_data, self.x_data_reversed,
                                                          self.x_max_length, self.x_cost_mask,
-                                                         self.x_reset_mask, 
+                                                         self.x_reset_mask,
                                                          self.ran_cost_utterance, self.x_dropmask],
                                             outputs=[self.training_cost, self.kl_divergence_cost_acc, self.latent_utterance_variable_approx_posterior_mean_var],
-                                            updates=self.updates + self.state_updates, 
-                                            on_unused_input='warn', 
+                                            updates=self.updates + self.state_updates,
+                                            on_unused_input='warn',
                                             name="train_fn")
 
         return self.train_fn
@@ -1314,13 +1318,13 @@ class DialogEncoderDecoder(Model):
         if not hasattr(self, 'decoder_encoding_fn'):
             # Compile functions
             logger.debug("Building decoder encoding function")
-                
-            self.decoder_encoding_fn = theano.function(inputs=[self.x_data, self.x_data_reversed, 
+
+            self.decoder_encoding_fn = theano.function(inputs=[self.x_data, self.x_data_reversed,
                                                          self.x_max_length, self.x_cost_mask,
-                                                         self.x_reset_mask, 
+                                                         self.x_reset_mask,
                                                          self.ran_cost_utterance, self.x_dropmask],
                                             outputs=[self.hd],
-                                            on_unused_input='warn', 
+                                            on_unused_input='warn',
                                             name="decoder_encoding_fn")
 
         return self.decoder_encoding_fn
@@ -1332,14 +1336,14 @@ class DialogEncoderDecoder(Model):
             # Compile functions
             logger.debug("Building NCE train function")
 
-            self.nce_fn = theano.function(inputs=[self.x_data, self.x_data_reversed, 
-                                                  self.y_neg, self.x_max_length, 
+            self.nce_fn = theano.function(inputs=[self.x_data, self.x_data_reversed,
+                                                  self.y_neg, self.x_max_length,
                                                   self.x_cost_mask,
-                                                  self.x_reset_mask, self.ran_cost_utterance, 
+                                                  self.x_reset_mask, self.ran_cost_utterance,
                                                   self.x_dropmask],
                                             outputs=[self.training_cost, self.kl_divergence_cost_acc, self.latent_utterance_variable_approx_posterior_mean_var],
-                                            updates=self.updates + self.state_updates, 
-                                            on_unused_input='warn', 
+                                            updates=self.updates + self.state_updates,
+                                            on_unused_input='warn',
                                             name="train_fn")
 
         return self.nce_fn
@@ -1349,8 +1353,8 @@ class DialogEncoderDecoder(Model):
         if not hasattr(self, 'eval_fn'):
             # Compile functions
             logger.debug("Building evaluation function")
-            self.eval_fn = theano.function(inputs=[self.x_data, self.x_data_reversed, self.x_max_length, self.x_cost_mask, self.x_reset_mask, self.ran_cost_utterance, self.x_dropmask], 
-                                            outputs=[self.evaluation_cost, self.kl_divergence_cost_acc, self.softmax_cost, self.kl_divergence_cost, self.latent_utterance_variable_approx_posterior_mean_var], 
+            self.eval_fn = theano.function(inputs=[self.x_data, self.x_data_reversed, self.x_max_length, self.x_cost_mask, self.x_reset_mask, self.ran_cost_utterance, self.x_dropmask],
+                                            outputs=[self.evaluation_cost, self.kl_divergence_cost_acc, self.softmax_cost, self.kl_divergence_cost, self.latent_utterance_variable_approx_posterior_mean_var],
                                             updates=self.state_updates,
                                             on_unused_input='warn', name="eval_fn")
         return self.eval_fn
@@ -1360,7 +1364,7 @@ class DialogEncoderDecoder(Model):
         if not hasattr(self, 'grads_eval_fn'):
             # Compile functions
             logger.debug("Building grad eval function")
-            self.grads_eval_fn = theano.function(inputs=[self.x_data, self.x_data_reversed, self.x_max_length, self.x_cost_mask, self.x_reset_mask, self.ran_cost_utterance, self.x_dropmask], 
+            self.grads_eval_fn = theano.function(inputs=[self.x_data, self.x_data_reversed, self.x_max_length, self.x_cost_mask, self.x_reset_mask, self.ran_cost_utterance, self.x_dropmask],
                                             outputs=[self.softmax_cost_acc, self.kl_divergence_cost_acc, self.grads_wrt_softmax_cost, self.grads_wrt_kl_divergence_cost],
                                             on_unused_input='warn', name="eval_fn")
         return self.grads_eval_fn
@@ -1370,7 +1374,7 @@ class DialogEncoderDecoder(Model):
         if not hasattr(self, 'get_states_fn'):
             # Compile functions
             logger.debug("Building selective function")
-            
+
             outputs = [self.h, self.hs, self.hd] + [x for x in self.utterance_decoder_states]
             self.get_states_fn = theano.function(inputs=[self.x_data, self.x_data_reversed, self.x_max_length, self.x_reset_mask],
                                             outputs=outputs, updates=self.state_updates, on_unused_input='warn',
@@ -1413,7 +1417,7 @@ class DialogEncoderDecoder(Model):
 
     # Currently this function does not supported truncated computations.
     # NOTE: If batch is given as input with padded endings,
-    # e.g. last 'n' tokens are all zero and not part of the real sequence, 
+    # e.g. last 'n' tokens are all zero and not part of the real sequence,
     # then the encoding must be extracted at index of the last non-padded (non-zero) token.
     def build_encoder_function(self):
         if not hasattr(self, 'encoder_fn'):
@@ -1611,10 +1615,10 @@ class DialogEncoderDecoder(Model):
         self.global_params = []
 
         self.__dict__.update(state)
-        self.rng = numpy.random.RandomState(state['seed']) 
+        self.rng = numpy.random.RandomState(state['seed'])
 
         # Load dictionary
-        raw_dict = cPickle.load(open(self.dictionary, 'r'))
+        raw_dict = cPickle.load(open(self.dictionary, 'rb'))
 
         # Probabilities for each term in the corpus used for noise contrastive estimation (NCE)
         self.noise_probs = [x[2] for x in sorted(raw_dict, key=operator.itemgetter(1))]
@@ -1622,7 +1626,7 @@ class DialogEncoderDecoder(Model):
         self.noise_probs /= numpy.sum(self.noise_probs)
         self.noise_probs = self.noise_probs ** 0.75
         self.noise_probs /= numpy.sum(self.noise_probs)
-        
+
         self.t_noise_probs = theano.shared(self.noise_probs.astype('float32'), 't_noise_probs')
 
         # Dictionaries to convert str to idx and vice-versa
@@ -1635,8 +1639,8 @@ class DialogEncoderDecoder(Model):
 
         if self.end_sym_utterance not in self.str_to_idx:
            raise Exception("Error, malformed dictionary!")
-         
-        # Number of words in the dictionary 
+
+        # Number of words in the dictionary
         self.idim = len(self.str_to_idx)
         self.state['idim'] = self.idim
         logger.debug("idim: " + str(self.idim))
@@ -1652,7 +1656,7 @@ class DialogEncoderDecoder(Model):
         self.x_dropmask = T.matrix('x_dropmask')
 
 
-        
+
         # The 'x' data (input) is defined as all symbols except the last, and
         # the 'y' data (output) is defined as all symbols except the first.
         training_x = self.x_data[:(self.x_max_length-1)]
@@ -1664,7 +1668,7 @@ class DialogEncoderDecoder(Model):
         training_hs_mask = T.neq(training_x, self.eos_sym)
         training_x_cost_mask = self.x_cost_mask[1:self.x_max_length]
         training_x_cost_mask_flat = training_x_cost_mask.flatten()
-        
+
         # Backward compatibility
         if 'decoder_bias_type' in self.state:
             logger.debug("Decoder bias type {}".format(self.decoder_bias_type))
@@ -1674,7 +1678,7 @@ class DialogEncoderDecoder(Model):
         if self.initialize_from_pretrained_word_embeddings == True:
             # Load pretrained word embeddings from pickled file
             logger.debug("Loading pretrained word embeddings")
-            pretrained_embeddings = cPickle.load(open(self.pretrained_word_embeddings_file, 'r'))
+            pretrained_embeddings = cPickle.load(open(self.pretrained_word_embeddings_file, 'rb'))
 
             # Check all dimensions match from the pretrained embeddings
             assert(self.idim == pretrained_embeddings[0].shape[0])
@@ -1755,11 +1759,11 @@ class DialogEncoderDecoder(Model):
         if self.add_latent_gaussian_per_utterance:
             logger.debug("Initializing prior encoder for utterance-level latent variable")
 
-            # First ,compute mask over latent Gaussian variables. 
+            # First ,compute mask over latent Gaussian variables.
             # One means that a variable is part of the computational graph and zero that it's not.
             latent_variable_mask = T.eq(training_x, self.eos_sym) * training_x_cost_mask
 
-            # We consider two kinds of prior: one case where the latent variable is 
+            # We consider two kinds of prior: one case where the latent variable is
             # conditioned on the dialogue encoder, and one case where it is not conditioned on anything.
             if self.condition_latent_variable_on_dialogue_encoder:
                 self.hs_to_condition_latent_variable_on = self.hs
@@ -1962,7 +1966,7 @@ class DialogEncoderDecoder(Model):
         self.params_to_train = []
         self.params_to_exclude = []
         if self.fix_encoder_parameters:
-            # If the option fix_encoder_parameters is on, then we exclude all parameters 
+            # If the option fix_encoder_parameters is on, then we exclude all parameters
             # related to the utterance encoder(s) and dialogue encoder, including the word embeddings,
             # from the parameter training set.
             if self.bidirectional_utterance_encoder:

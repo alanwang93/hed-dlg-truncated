@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 
 import argparse
-import cPickle
+import sys
+if sys.version_info[0] < 3:
+    import cPickle
+else:
+    import pickle as cPickle
 import traceback
 import logging
 import time
@@ -44,7 +48,7 @@ def parse_args():
 
     parser.add_argument("output",
             help="Output file")
-    
+
     parser.add_argument("--beam_search",
                         action="store_true",
                         help="Use beam search instead of random search")
@@ -76,8 +80,8 @@ def main():
 
     logging.basicConfig(level=getattr(logging, state['level']), format="%(asctime)s: %(name)s: %(levelname)s: %(message)s")
 
-    model = DialogEncoderDecoder(state) 
-    
+    model = DialogEncoderDecoder(state)
+
     sampler = search.RandomSampler(model)
     if args.beam_search:
         sampler = search.BeamSampler(model)
@@ -87,12 +91,12 @@ def main():
         model.load(model_path)
     else:
         raise Exception("Must specify a valid model path")
-    
+
     contexts = [[]]
     lines = open(args.context, "r").readlines()
     if len(lines):
         contexts = [x.strip() for x in lines]
-    
+
     print('Sampling started...')
     context_samples, context_costs = sampler.sample(contexts,
                                             n_samples=args.n_samples,
@@ -101,7 +105,7 @@ def main():
                                             verbose=args.verbose)
     print('Sampling finished.')
     print('Saving to file...')
-     
+
     # Write to output file
     output_handle = open(args.output, "w")
     for context_sample in context_samples:
@@ -112,4 +116,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

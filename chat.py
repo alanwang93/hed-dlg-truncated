@@ -4,12 +4,15 @@ __authors__ = ("Iulian Serban, Alessandro Sordoni")
 __contact__ = "Iulian Serban <julianserban@gmail.com>"
 
 import argparse
-import cPickle
+import sys
+if sys.version_info[0] < 3:
+    import cPickle
+else:
+    import pickle as cPickle
 import traceback
 import itertools
 import logging
 import time
-import sys
 import search
 
 import collections
@@ -21,7 +24,7 @@ import codecs
 import nltk
 from random import randint
 
-from dialog_encdec import DialogEncoderDecoder 
+from dialog_encdec import DialogEncoderDecoder
 from numpy_compat import argpartition
 from state import prototype_state
 
@@ -40,7 +43,7 @@ class Timer(object):
     def finish(self):
         self.total += time.time() - self.start_time
 
-def sample(model, seqs=[[]], n_samples=1, sampler=None, ignore_unk=False): 
+def sample(model, seqs=[[]], n_samples=1, sampler=None, ignore_unk=False):
     if sampler:
         context_samples, context_costs = sampler.sample(seqs,
                                             n_samples=n_samples,
@@ -65,11 +68,11 @@ def remove_speaker_tokens(s):
 
 def parse_args():
     parser = argparse.ArgumentParser("Sample (with beam-search) from the session model")
-       
+
     parser.add_argument("--ignore-unk",
             default=True, action="store_true",
             help="Ignore unknown words")
-    
+
     parser.add_argument("model_prefix",
             help="Path to the model prefix (without _model.npz or _state.pkl)")
 
@@ -82,22 +85,22 @@ def parse_args():
 def main():
     args = parse_args()
     state = prototype_state()
-   
+
     state_path = args.model_prefix + "_state.pkl"
     model_path = args.model_prefix + "_model.npz"
 
     with open(state_path) as src:
-        state.update(cPickle.load(src)) 
-    
+        state.update(cPickle.load(src))
+
     logging.basicConfig(level=getattr(logging, state['level']), format="%(asctime)s: %(name)s: %(levelname)s: %(message)s")
-     
+
     model = DialogEncoderDecoder(state)
     if os.path.isfile(model_path):
         logger.debug("Loading previous model")
         model.load(model_path)
     else:
         raise Exception("Must specify a valid model path")
-    
+
     logger.info("This model uses " + model.decoder_bias_type + " bias type")
 
     #sampler = search.RandomSampler(model)
@@ -105,18 +108,18 @@ def main():
 
     # Start chat loop
     utterances = collections.deque()
-    
+
     while (True):
        var = raw_input("User - ")
 
-       # Increase number of utterances. We just set it to zero for simplicity so that model has no memory. 
+       # Increase number of utterances. We just set it to zero for simplicity so that model has no memory.
        # But it works fine if we increase this number
        while len(utterances) > 0:
            utterances.popleft()
-         
+
        current_utterance = [ model.end_sym_utterance ] + ['<first_speaker>'] + var.split() + [ model.end_sym_utterance ]
        utterances.append(current_utterance)
-         
+
        #TODO Sample a random reply. To spice it up, we could pick the longest reply or the reply with the fewest placeholders...
        seqs = list(itertools.chain(*utterances))
 
@@ -141,5 +144,3 @@ if __name__ == "__main__":
     assert(theano.config.floatX == 'float32')
 
     main()
-
-

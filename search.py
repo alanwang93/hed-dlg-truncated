@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 
 import argparse
-import cPickle
+import sys
+if sys.version_info[0] < 3:
+    import cPickle
+else:
+    import pickle as cPickle
 import traceback
 import logging
 import time
@@ -25,7 +29,7 @@ def sample_wrapper(sample_logic):
 
         if verbose:
             logger.info("Starting {} : {} start sequences in total".format(sampler.name, len(contexts)))
-         
+
         context_samples = []
         context_costs = []
 
@@ -46,14 +50,14 @@ def sample_wrapper(sample_logic):
                         utterance_ids = [sampler.model.eos_sym] + utterance_ids
                     if not utterance_ids[-1] == sampler.model.eos_sym:
                         utterance_ids += [sampler.model.eos_sym]
-                
+
                 else:
                     utterance_ids = [sampler.model.eos_sym]
 
                 joined_context += utterance_ids
 
-            samples, costs = sample_logic(sampler, joined_context, **kwargs) 
-             
+            samples, costs = sample_logic(sampler, joined_context, **kwargs)
+
             # Convert back indices to list of words
             converted_samples = map(lambda sample : sampler.model.indices_to_words(sample, exclude_end_sym=kwargs.get('n_turns', 1) == 1), samples)
             # Join the list of words
@@ -61,7 +65,7 @@ def sample_wrapper(sample_logic):
 
             if verbose:
                 for i in range(len(converted_samples)):
-                    print "{}: {}".format(costs[i], converted_samples[i].encode('utf-8'))
+                    print("{}: {}".format(costs[i], converted_samples[i].encode('utf-8')))
 
             context_samples.append(converted_samples)
             context_costs.append(costs)
@@ -71,7 +75,7 @@ def sample_wrapper(sample_logic):
 
 class Sampler(object):
     """
-    An abstract sampler class 
+    An abstract sampler class
     """
     def __init__(self, model):
         # Compile beam search
@@ -88,7 +92,7 @@ class Sampler(object):
             self.compute_decoder_encoding = self.model.build_decoder_encoding()
 
         self.compiled = True
-    
+
     def select_next_words(self, next_probs, step_num, how_many):
         pass
 
@@ -111,10 +115,10 @@ class Sampler(object):
 
         if not self.compiled:
             self.compile()
-        
-        # Convert to matrix, each column is a context 
+
+        # Convert to matrix, each column is a context
         # [[1,1,1],[4,4,4],[2,2,2]]
-        context = numpy.repeat(numpy.array(context, dtype='int32')[:,None], 
+        context = numpy.repeat(numpy.array(context, dtype='int32')[:,None],
                                n_samples, axis=1)
 
         if context[-1, 0] != self.model.eos_sym:
@@ -154,7 +158,7 @@ class Sampler(object):
 
         fin_gen = []
         fin_costs = []
-         
+
         gen = [[] for i in range(n_samples)]
         costs = [0. for i in range(n_samples)]
         beam_empty = False
@@ -165,10 +169,10 @@ class Sampler(object):
         for k in range(max_length):
             if len(fin_gen) >= n_samples or beam_empty:
                 break
-             
+
             if verbose:
                 logger.info("{} : sampling step {}, beams alive {}".format(self.name, k, len(gen)))
-             
+
             # Here we aggregate the context and recompute the hidden state
             # at both session level and query level.
             # Stack only when we sampled something
@@ -184,8 +188,8 @@ class Sampler(object):
                         prev_eos_index = eos_index
 
             prev_words = context[-1, :]
-           
-            # Recompute encoder states, hs and random variables 
+
+            # Recompute encoder states, hs and random variables
             # only for those particular utterances that meet the end-of-utterance token
             indx_update_hs = [num for num, prev_word in enumerate(prev_words)
                                 if prev_word == self.model.eos_sym]
@@ -199,22 +203,22 @@ class Sampler(object):
             next_probs, new_hd = self.next_probs_predictor(prev_hs, prev_hd, prev_words, context, ran_vectors)
 
             assert next_probs.shape[1] == self.model.idim
-            
+
             # Adjust log probs according to search restrictions
             if ignore_unk:
                 next_probs[:, self.model.unk_sym] = 0
             if k <= min_length:
                 next_probs[:, self.model.eos_sym] = 0
                 next_probs[:, self.model.eod_sym] = 0
-             
-            # Update costs 
+
+            # Update costs
             next_costs = numpy.array(costs)[:, None] - numpy.log(next_probs)
 
             # Select next words here
             (beam_indx, word_indx), costs = self.select_next_words(next_costs, next_probs, k, n_samples)
-            
+
             # Update the stacks
-            new_gen = [] 
+            new_gen = []
             new_costs = []
             new_sources = []
 
@@ -223,7 +227,7 @@ class Sampler(object):
                     break
 
                 hypothesis = gen[beam_ind] + [word_ind]
-                 
+
                 # End of utterance has been detected
                 n_turns_hypothesis = self.count_n_turns(hypothesis)
                 if n_turns_hypothesis == n_turns:
@@ -249,17 +253,17 @@ class Sampler(object):
                     fin_costs.append(cost)
                 else:
                     # Hypothesis recombination
-                    # TODO: pick the one with lowest cost 
+                    # TODO: pick the one with lowest cost
                     has_similar = False
                     if self.hyp_rec > 0:
                         has_similar = len([g for g in new_gen if \
                             g[-self.hyp_rec:] == hypothesis[-self.hyp_rec:]]) != 0
-                    
+
                     if not has_similar:
                         new_sources.append(beam_ind)
                         new_gen.append(hypothesis)
                         new_costs.append(cost)
-            
+
             if verbose:
                 for gen in new_gen:
                     logger.debug("partial -> {}".format(' '.join(self.model.indices_to_words(gen))))
@@ -276,9 +280,9 @@ class Sampler(object):
         # If we have not sampled anything
         # then force include stuff
         if len(fin_gen) == 0:
-            fin_gen = gen 
-            fin_costs = costs 
-         
+            fin_gen = gen
+            fin_costs = costs
+
         # Normalize costs
         if normalize_by_length:
             fin_costs = [(fin_costs[num]/len(fin_gen[num])) \
@@ -286,7 +290,7 @@ class Sampler(object):
 
         fin_gen = numpy.array(fin_gen)[numpy.argsort(fin_costs)]
         fin_costs = numpy.array(sorted(fin_costs))
-        return fin_gen[:n_samples], fin_costs[:n_samples] 
+        return fin_gen[:n_samples], fin_costs[:n_samples]
 
 class RandomSampler(Sampler):
     def __init__(self, model):
@@ -296,7 +300,7 @@ class RandomSampler(Sampler):
 
     def select_next_words(self, next_costs, next_probs, step_num, how_many):
         # Choice is complaining
-        next_probs = next_probs.astype("float64") 
+        next_probs = next_probs.astype("float64")
         word_indx = numpy.array([self.model.rng.choice(self.model.idim, p = x/numpy.sum(x))
                                     for x in next_probs], dtype='int32')
         beam_indx = range(next_probs.shape[0])
@@ -319,12 +323,10 @@ class BeamSampler(Sampler):
             # Set the next cost to infinite for finished utterances (they will be replaced)
             # by other utterances in the beam
             flat_next_costs = next_costs.flatten()
-         
+
         voc_size = next_costs.shape[1]
-         
+
         args = numpy.argpartition(flat_next_costs, how_many)[:how_many]
         args = args[numpy.argsort(flat_next_costs[args])]
-        
-        return numpy.unravel_index(args, next_costs.shape), flat_next_costs[args]
-        
 
+        return numpy.unravel_index(args, next_costs.shape), flat_next_costs[args]

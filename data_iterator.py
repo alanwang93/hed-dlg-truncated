@@ -11,7 +11,10 @@ from SS_dataset import *
 
 import itertools
 import sys
-import pickle
+if sys.version_info[0] < 3:
+    import cPickle
+else:
+    import pickle as cPickle
 import random
 import datetime
 import math
@@ -26,11 +29,11 @@ def add_random_variables_to_batch(state, rng, batch, prev_batch, evaluate_mode):
     We do it this way, because we want to avoid Theano's random sampling both to speed up and to avoid
     known Theano issues with sampling inside scan loops.
 
-    The random variable 'ran_var_constutterance' is sampled from a standard Gaussian distribution, 
+    The random variable 'ran_var_constutterance' is sampled from a standard Gaussian distribution,
     which remains constant during each utterance (i.e. between end-of-utterance tokens).
-    
-    When not in evaluate mode, the random vector 'ran_decoder_drop_mask' is also sampled. 
-    This variable represents the input tokens which are replaced by unk when given to 
+
+    When not in evaluate mode, the random vector 'ran_decoder_drop_mask' is also sampled.
+    This variable represents the input tokens which are replaced by unk when given to
     the decoder RNN. It is required for the noise addition trick used by Bowman et al. (2015).
     """
 
@@ -62,7 +65,7 @@ def add_random_variables_to_batch(state, rng, batch, prev_batch, evaluate_mode):
                 Ran_Var_ConstUtterance[j, idx, :] = ran_vectors[i, :]
 
         # If a previous batch is given, and the last utterance in the previous batch
-        # overlaps with the first utterance in the current batch, then we need to copy over 
+        # overlaps with the first utterance in the current batch, then we need to copy over
         # the random variables from the last utterance in the last batch to remain consistent.
         if prev_batch:
             if ('x_reset' in prev_batch) and (not numpy.sum(numpy.abs(prev_batch['x_reset'])) < 1) \
@@ -101,10 +104,10 @@ def create_padded_batch(state, rng, x, force_end_of_utterance_token = False):
     # Take into account that sometimes we need to add the end-of-utterance symbol at the start
     mx += 1
 
-    n = state['bs'] 
-    
+    n = state['bs']
+
     X = numpy.zeros((mx, n), dtype='int32')
-    Xmask = numpy.zeros((mx, n), dtype='float32') 
+    Xmask = numpy.zeros((mx, n), dtype='float32')
 
     # Variable to store each utterance in reverse form (for bidirectional RNNs)
     X_reversed = numpy.zeros((mx, n), dtype='int32')
@@ -118,7 +121,7 @@ def create_padded_batch(state, rng, x, force_end_of_utterance_token = False):
         dialogue_length = len(x[0][idx])
 
         # Fiddle-it if it is too long ..
-        if mx < dialogue_length: 
+        if mx < dialogue_length:
             continue
 
         # Make sure end-of-utterance symbol is at beginning of dialogue.
@@ -134,15 +137,15 @@ def create_padded_batch(state, rng, x, force_end_of_utterance_token = False):
 
         # Set the number of predictions == sum(Xmask), for cost purposes, minus one (to exclude first eos symbol)
         num_preds += dialogue_length - 1
-        
+
         # Mark the end of phrase
         if len(x[0][idx]) < mx:
             if force_end_of_utterance_token:
                 X[dialogue_length:, idx] = state['eos_sym']
 
         # Initialize Xmask column with ones in all positions that
-        # were just set in X (except for first eos symbol, because we are not evaluating this). 
-        # Note: if we need mask to depend on tokens inside X, then we need to 
+        # were just set in X (except for first eos symbol, because we are not evaluating this).
+        # Note: if we need mask to depend on tokens inside X, then we need to
         # create a corresponding mask for X_reversed and send it further in the model
         Xmask[0:dialogue_length, idx] = 1.
 
@@ -189,21 +192,21 @@ class Iterator(SSIterator):
 
         # Store whether the iterator operates in evaluate mode or not
         self.evaluate_mode = kwargs.pop('evaluate_mode', False)
-        print 'Data Iterator Evaluate Mode: ', self.evaluate_mode
+        print('Data Iterator Evaluate Mode: ', self.evaluate_mode)
 
     def get_homogenous_batch_iter(self, batch_size = -1):
         while True:
-            batch_size = self.batch_size if (batch_size == -1) else batch_size 
-           
+            batch_size = self.batch_size if (batch_size == -1) else batch_size
+
             data = []
             for k in range(self.k_batches):
                 batch = SSIterator.next(self)
                 if batch:
                     data.append(batch)
-            
+
             if not len(data):
                 return
-            
+
             number_of_batches = len(data)
             data = list(itertools.chain.from_iterable(data))
 
@@ -216,7 +219,7 @@ class Iterator(SSIterator):
 
             lens = numpy.asarray([map(len, x)])
             order = numpy.argsort(lens.max(axis=0))
-                 
+
             for k in range(number_of_batches):
                 indices = order[k * batch_size:(k + 1) * batch_size]
                 full_batch = create_padded_batch(self.state, self.rng, [x[indices]])
@@ -232,7 +235,7 @@ class Iterator(SSIterator):
                     if start_pos > 0:
                         start_pos = start_pos - 1
 
-                    # We need to copy over the last token from each batch onto the next, 
+                    # We need to copy over the last token from each batch onto the next,
                     # because this is what the model expects.
                     end_pos = min(full_batch['max_length'], self.state['max_grad_steps'] * (i + 1))
 
@@ -262,9 +265,9 @@ class Iterator(SSIterator):
         self.batch_iter = None
 
     def next(self, batch_size = -1):
-        """ 
+        """
         We can specify a batch size,
-        independent of the object initialization. 
+        independent of the object initialization.
         """
         # If there are no more batches in list, try to generate new batches
         if not self.batch_iter:
@@ -274,7 +277,7 @@ class Iterator(SSIterator):
             # Retrieve next batch
             batch = next(self.batch_iter)
 
-            # Add Gaussian random variables to batch. 
+            # Add Gaussian random variables to batch.
             # We add them separetly for each batch to save memory.
             # If we instead had added them to the full batch before splitting into mini-batches,
             # the random variables would take up several GBs for big batches and long documents.
@@ -294,7 +297,7 @@ def get_train_iterator(state):
         use_infinite_loop=True,
         max_len=-1,
         evaluate_mode=False)
-     
+
     valid_data = Iterator(
         state['valid_dialogues'],
         int(state['bs']),
@@ -303,7 +306,7 @@ def get_train_iterator(state):
         use_infinite_loop=False,
         max_len=-1,
         evaluate_mode=True)
-    return train_data, valid_data 
+    return train_data, valid_data
 
 def get_test_iterator(state):
     assert 'test_dialogues' in state
@@ -311,7 +314,7 @@ def get_test_iterator(state):
 
     test_data = Iterator(
         test_path,
-        int(state['bs']), 
+        int(state['bs']),
         state=state,
         seed=state['seed'],
         use_infinite_loop=False,

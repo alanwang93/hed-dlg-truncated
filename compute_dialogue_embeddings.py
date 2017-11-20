@@ -6,11 +6,14 @@ This script computes dialogue embeddings for dialogues found in a text file.
 #!/usr/bin/env python
 
 import argparse
-import cPickle
+import sys
+if sys.version_info[0] < 3:
+    import cPickle
+else:
+    import pickle as cPickle
 import traceback
 import logging
 import time
-import sys
 import math
 
 import os
@@ -46,7 +49,7 @@ def parse_args():
 
     parser.add_argument("output",
             help="Output file")
-    
+
     parser.add_argument("--verbose",
             action="store_true", default=False,
             help="Be verbose")
@@ -116,8 +119,8 @@ def main():
 
     state['bs'] = 10
 
-    model = DialogEncoderDecoder(state) 
-    
+    model = DialogEncoderDecoder(state)
+
     if os.path.isfile(model_path):
         logger.debug("Loading previous model")
         model.load(model_path)

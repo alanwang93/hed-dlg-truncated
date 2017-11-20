@@ -14,7 +14,11 @@ THEANO_FLAGS=mode=FAST_RUN,device=gpu,floatX=float32,allow_gc=True,scan.allow_gc
 """
 
 import argparse
-import cPickle
+import sys
+if sys.version_info[0] < 3:
+    import cPickle
+else:
+    import pickle as cPickle
 import traceback
 import logging
 import time
@@ -25,9 +29,9 @@ import numpy
 import codecs
 import math
 
-from dialog_encdec import DialogEncoderDecoder 
+from dialog_encdec import DialogEncoderDecoder
 from numpy_compat import argpartition
-from state import * 
+from state import *
 from data_iterator import get_test_iterator
 
 import matplotlib
@@ -41,10 +45,10 @@ stopwords = "all another any anybody anyone anything both each each other either
 
 def parse_args():
     parser = argparse.ArgumentParser("Sample (with beam-search) from the session model")
-    
+
     parser.add_argument("model_prefix",
             help="Path to the model prefix (without _model.npz or _state.pkl)")
-    
+
     parser.add_argument("--test-path",
             type=str, help="File of test data")
 
@@ -59,24 +63,24 @@ def parse_args():
 def main():
     args = parse_args()
     state = prototype_state()
-   
+
     state_path = args.model_prefix + "_state.pkl"
     model_path = args.model_prefix + "_model.npz"
 
     with open(state_path) as src:
-        state.update(cPickle.load(src)) 
-    
+        state.update(cPickle.load(src))
+
     logging.basicConfig(level=getattr(logging, state['level']), format="%(asctime)s: %(name)s: %(levelname)s: %(message)s")
-     
+
     model = DialogEncoderDecoder(state)
     if os.path.isfile(model_path):
         logger.debug("Loading previous model")
         model.load(model_path)
     else:
         raise Exception("Must specify a valid model path")
-    
+
     eval_batch = model.build_eval_function()
-    
+
     if args.test_path:
         state['test_dialogues'] = args.test_path
 
@@ -101,7 +105,7 @@ def main():
             document_ids[i] = int(labels_text[i].split('\t')[0])
 
         unique_document_ids = numpy.unique(document_ids)
-        
+
         assert(test_data.data_len == document_ids.shape[0])
 
     else:
@@ -118,7 +122,7 @@ def main():
 
     max_stored_len = 160 # Maximum number of tokens to store for dialogues with highest and lowest validation errors
 
-    logger.debug("[TEST START]") 
+    logger.debug("[TEST START]")
 
     while True:
         batch = test_data.next()
@@ -145,11 +149,11 @@ def main():
         c, _, c_list, _, _  = eval_batch(x_data, x_data_reversed, max_length, x_cost_mask, reset_mask, ran_cost_utterance, ran_decoder_drop_mask)
 
         c_list = c_list.reshape((batch['x'].shape[1],max_length-1), order=(1,0))
-        c_list = numpy.sum(c_list, axis=1)     
+        c_list = numpy.sum(c_list, axis=1)
 
         if numpy.isinf(c) or numpy.isnan(c):
             continue
-        
+
         test_cost += c
 
         words_in_triples = numpy.sum(x_cost_mask, axis=0)
@@ -162,13 +166,13 @@ def main():
 
 
         test_wordpreds_done += batch['num_preds']
-     
-    logger.debug("[TEST END]") 
+
+    logger.debug("[TEST END]")
 
     print 'test_wordpreds_done (number of words) ', test_wordpreds_done
     test_cost /= test_wordpreds_done
 
-    print "** test cost (NLL) = %.4f, test word-perplexity = %.4f " % (float(test_cost), float(math.exp(test_cost)))  
+    print "** test cost (NLL) = %.4f, test word-perplexity = %.4f " % (float(test_cost), float(math.exp(test_cost)))
 
     logger.debug("All done, exiting...")
 

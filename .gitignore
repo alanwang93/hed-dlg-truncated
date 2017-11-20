@@ -1,3 +1,8 @@
+# Others
+*~
+.DS_Store
+PREPARE.md
+prepare.sh
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -5,7 +10,8 @@ state.py
 
 # C extensions
 *.so
-
+# Data folder
+data/
 # Distribution / packaging
 .Python
 env/

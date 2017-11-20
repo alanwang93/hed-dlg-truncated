@@ -15,7 +15,10 @@ import operator
 import os
 import sys
 import logging
-import cPickle
+if sys.version_info[0] < 3:
+    import cPickle
+else:
+    import pickle as cPickle
 
 from collections import Counter
 
@@ -27,7 +30,7 @@ def safe_pickle(obj, filename):
         logger.info("Overwriting %s." % filename)
     else:
         logger.info("Saving to %s." % filename)
-    
+
     with open(filename, 'wb') as f:
         cPickle.dump(obj, f, protocol=cPickle.HIGHEST_PROTOCOL)
 

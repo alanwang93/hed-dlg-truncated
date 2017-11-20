@@ -1,9 +1,9 @@
 """
-Takes as input a dictionary file and python pickle file containing a 
-dictionary with pretrained word embeddings, and computes an initial encoding 
+Takes as input a dictionary file and python pickle file containing a
+dictionary with pretrained word embeddings, and computes an initial encoding
 matrix W_emb based on these.
 
-Note: Certain (dialogue-specific) words are not looked up in the pretrained word embedding dictionary, including start-of-utterance, end-of-utterance and others. 
+Note: Certain (dialogue-specific) words are not looked up in the pretrained word embedding dictionary, including start-of-utterance, end-of-utterance and others.
 
 Usage example for MT embeddings:
 
@@ -24,7 +24,10 @@ import operator
 import os
 import sys
 import logging
-import cPickle
+if sys.version_info[0] < 3:
+    import cPickle
+else:
+    import pickle as cPickle
 import itertools
 from collections import Counter
 from utils import *
@@ -50,7 +53,7 @@ def safe_pickle(obj, filename):
 # Takes a word as input and creates a set of one-character changes to the word (splits, transposes, replaces, insert etc.).
 def edits1(word):
     splits     = [(word[:i], word[i:]) for i in range(len(word) + 1)]
-    
+
     # We exclude deletes because it much more frequent that a word in a movie manuscript (or Twitter status?) has
     # a letter extra than a letter less.
     #deletes    = [a + b[1:] for a, b in splits if b]
@@ -215,7 +218,7 @@ for key in str_to_idx.iterkeys():
 
 
 unique_words_missing = i_dim - words_found
-  
+
 logger.info("Unique words found in model dictionary and word embeddings: %d" % words_found)
 logger.info("Unique words left out: %d" % unique_words_missing)
 logger.info("Terms in corpus: %d" % total_freq)
@@ -254,4 +257,3 @@ for i in range(unique_words_missing):
     W_emb_nonpretrained_mask[unique_word_indices_left_out[i], :] = 1
 
 safe_pickle([W_emb, W_emb_nonpretrained_mask], args.output_matrix + ".pkl")
-

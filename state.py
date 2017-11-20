@@ -1,20 +1,24 @@
 from collections import OrderedDict
-import cPickle
+import sys
+if sys.version_info[0] < 3:
+    import cPickle
+else:
+    import pickle as cPickle
 import os
 
 def prototype_state():
-    state = {} 
+    state = {}
 
     # ----- CONSTANTS -----
     # Random seed
     state['seed'] = 1234
-    
+
     # Logging level
     state['level'] = 'DEBUG'
 
     # Out-of-vocabulary token string
     state['oov'] = '<unk>'
-    
+
     # These are end-of-sequence marks
     state['end_sym_utterance'] = '</s>'
 
@@ -40,7 +44,7 @@ def prototype_state():
     # This requires qdim_decoder = 2x rankdim
     state['maxout_out'] = False
 
-    # If this flag is on, a two-layer MLPs will applied on the utterance decoder hidden state before 
+    # If this flag is on, a two-layer MLPs will applied on the utterance decoder hidden state before
     # outputting the distribution over words.
     state['deep_out'] = True
 
@@ -52,18 +56,18 @@ def prototype_state():
     state['sent_rec_activation'] = 'lambda x: T.tanh(x)'
     # The dialogue encoder activation function
     state['dialogue_rec_activation'] = 'lambda x: T.tanh(x)'
-    
+
     # Determines how to input the utterance encoder and dialogue encoder into the utterance decoder RNN hidden state:
     #  - 'first': initializes first hidden state of decoder using encoders
-    #  - 'all': initializes first hidden state of decoder using encoders, 
+    #  - 'all': initializes first hidden state of decoder using encoders,
     #            and inputs all hidden states of decoder using encoders
-    #  - 'selective': initializes first hidden state of decoder using encoders, 
+    #  - 'selective': initializes first hidden state of decoder using encoders,
     #                 and inputs all hidden states of decoder using encoders.
-    #                 Furthermore, a gating function is applied to the encoder input 
+    #                 Furthermore, a gating function is applied to the encoder input
     #                 to turn off certain dimensions if necessary.
     #
     # Experiments show that 'all' is most effective.
-    state['decoder_bias_type'] = 'all' 
+    state['decoder_bias_type'] = 'all'
 
     # Define the gating function for the three RNNs.
     state['utterance_encoder_gating'] = 'GRU' # Supports 'None' and 'GRU'
@@ -98,7 +102,7 @@ def prototype_state():
     state['qdim_encoder'] = 512
     # Dimensionality of (word-level) utterance decoder (RNN which generates output) hidden state
     state['qdim_decoder'] = 512
-    # Dimensionality of (utterance-level) context encoder hidden layer 
+    # Dimensionality of (utterance-level) context encoder hidden layer
     state['sdim'] = 1000
     # Dimensionality of low-rank word embedding approximation
     state['rankdim'] = 256
@@ -107,7 +111,7 @@ def prototype_state():
     # ----- LATENT VARIABLES WITH VARIATIONAL LEARNING -----
     # If this flag is on, a Gaussian latent variable is added at the beginning of each utterance.
     # The utterance decoder will be conditioned on this latent variable,
-    # and the model will be trained using the variational lower bound. 
+    # and the model will be trained using the variational lower bound.
     # See, for example, the variational auto-encoder by Kingma et al. (2013).
     state['add_latent_gaussian_per_utterance'] = False
     # This flag will condition the latent variable on the dialogue encoder
@@ -164,13 +168,13 @@ def prototype_state():
     # Choose optimization algorithm (adam works well most of the time)
     state['updater'] = 'adam'
     # If this flag is on, NCE (Noise-Contrastive Estimation) will be used to train model.
-    # This is significantly faster for large vocabularies (e.g. more than 20K words), 
+    # This is significantly faster for large vocabularies (e.g. more than 20K words),
     # but experiments show that this degrades performance.
     state['use_nce'] = False
     # Threshold to clip the gradient
     state['cutoff'] = 1.
     # Learning rate. The rate 0.0002 seems to work well across many tasks with adam.
-    # Alternatively, the learning rate can be adjusted down (e.g. 0.00004) 
+    # Alternatively, the learning rate can be adjusted down (e.g. 0.00004)
     # to at the end of training to help the model converge well.
     state['lr'] = 0.0002
     # Early stopping configuration
@@ -178,7 +182,7 @@ def prototype_state():
     state['cost_threshold'] = 1.003
     # Batch size. If out of memory, modify this!
     state['bs'] = 80
-    # Sort by length groups of  
+    # Sort by length groups of
     state['sort_k_batches'] = 20
     # Training examples will be split into subsequences.
     # This parameter controls the maximum size of each subsequence.
@@ -202,8 +206,8 @@ def prototype_state():
 
 def prototype_test():
     state = prototype_state()
-    
-    # Fill paths here! 
+
+    # Fill paths here!
     state['train_dialogues'] = "./tests/data/ttrain.dialogues.pkl"
     state['test_dialogues'] = "./tests/data/ttest.dialogues.pkl"
     state['valid_dialogues'] = "./tests/data/tvalid.dialogues.pkl"
@@ -211,19 +215,19 @@ def prototype_test():
     state['save_dir'] = "./tests/models/"
 
     state['max_grad_steps'] = 20
-    
+
     # Handle pretrained word embeddings. Using this requires rankdim=10
     state['initialize_from_pretrained_word_embeddings'] = False
-    state['pretrained_word_embeddings_file'] = './tests/data/MT_WordEmb.pkl' 
+    state['pretrained_word_embeddings_file'] = './tests/data/MT_WordEmb.pkl'
     state['fix_pretrained_word_embeddings'] = False
-    
+
     state['valid_freq'] = 50
 
     state['collaps_to_standard_rnn'] = False
-    
-    state['prefix'] = "testmodel_" 
+
+    state['prefix'] = "testmodel_"
     state['updater'] = 'adam'
-    
+
     state['maxout_out'] = False
     state['deep_out'] = True
     state['deep_dialogue_input'] = True
@@ -231,14 +235,14 @@ def prototype_test():
     state['utterance_encoder_gating'] = 'GRU'
     state['dialogue_encoder_gating'] = 'GRU'
     state['utterance_decoder_gating'] = 'GRU'
-    state['bidirectional_utterance_encoder'] = True 
+    state['bidirectional_utterance_encoder'] = True
     state['direct_connection_between_encoders_and_decoder'] = True
 
     state['bs'] = 5
     state['sort_k_batches'] = 1
     state['use_nce'] = False
     state['decoder_bias_type'] = 'all'
-    
+
     state['qdim_encoder'] = 15
     state['qdim_decoder'] = 5
     state['sdim'] = 10
@@ -248,8 +252,8 @@ def prototype_test():
 
 def prototype_test_variational():
     state = prototype_state()
-    
-    # Fill paths here! 
+
+    # Fill paths here!
     state['train_dialogues'] = "./tests/data/ttrain.dialogues.pkl"
     state['test_dialogues'] = "./tests/data/ttest.dialogues.pkl"
     state['valid_dialogues'] = "./tests/data/tvalid.dialogues.pkl"
@@ -260,16 +264,16 @@ def prototype_test_variational():
 
     # Handle pretrained word embeddings. Using this requires rankdim=10
     state['initialize_from_pretrained_word_embeddings'] = True
-    state['pretrained_word_embeddings_file'] = './tests/data/MT_WordEmb.pkl' 
+    state['pretrained_word_embeddings_file'] = './tests/data/MT_WordEmb.pkl'
     state['fix_pretrained_word_embeddings'] = True
-    
+
     state['valid_freq'] = 5
 
     state['collaps_to_standard_rnn'] = False
-    
-    state['prefix'] = "testmodel_" 
+
+    state['prefix'] = "testmodel_"
     state['updater'] = 'adam'
-    
+
     state['maxout_out'] = False
     state['deep_out'] = True
     state['deep_dialogue_input'] = True
@@ -297,7 +301,7 @@ def prototype_test_variational():
     state['sort_k_batches'] = 1
     state['use_nce'] = False
     state['decoder_bias_type'] = 'all'
-    
+
     state['qdim_encoder'] = 15
     state['qdim_decoder'] = 5
     state['sdim'] = 10
@@ -310,26 +314,26 @@ def prototype_test_variational():
 # by Serban et al. (2016).
 def prototype_twitter_lstm():
     state = prototype_state()
-    
-    state['train_dialogues'] = "../TwitterData/Training.dialogues.pkl"
-    state['test_dialogues'] = "../TwitterData/Test.dialogues.pkl"
-    state['valid_dialogues'] = "../TwitterData/Validation.dialogues.pkl"
-    state['dictionary'] = "../TwitterData/Dataset.dict.pkl" 
-    state['save_dir'] = "Output" 
+
+    state['train_dialogues'] = "data/TwitterData/Training.dialogues.pkl"
+    state['test_dialogues'] = "data/TwitterData/Test.dialogues.pkl"
+    state['valid_dialogues'] = "data/TwitterData/Validation.dialogues.pkl"
+    state['dictionary'] = "data/TwitterData/Dataset.dict.pkl"
+    state['save_dir'] = "Output"
 
     state['max_grad_steps'] = 80
-    
+
     state['valid_freq'] = 5000
-    
-    state['prefix'] = "TwitterModel_" 
+
+    state['prefix'] = "TwitterModel_"
     state['updater'] = 'adam'
-    
+
     state['deep_dialogue_input'] = True
     state['deep_out'] = True
 
     state['collaps_to_standard_rnn'] = True
- 
-    state['bs'] = 80 
+
+    state['bs'] = 80
     state['decoder_bias_type'] = 'all'
     state['direct_connection_between_encoders_and_decoder'] = False
     state['deep_direct_connection'] = False
@@ -361,10 +365,10 @@ def prototype_twitter_HRED():
     state = prototype_state()
 
     # Fill your paths here!
-    state['train_dialogues'] = "../TwitterData/Training.dialogues.pkl"
-    state['test_dialogues'] = "../TwitterData/Test.dialogues.pkl"
-    state['valid_dialogues'] = "../TwitterData/Validation.dialogues.pkl"
-    state['dictionary'] = "../TwitterData/Dataset.dict.pkl"
+    state['train_dialogues'] = "data/TwitterData/Training.dialogues.pkl"
+    state['test_dialogues'] = "data/TwitterData/Test.dialogues.pkl"
+    state['valid_dialogues'] = "data/TwitterData/Validation.dialogues.pkl"
+    state['dictionary'] = "data/TwitterData/Dataset.dict.pkl"
     state['save_dir'] = "Output"
 
     state['max_grad_steps'] = 80
@@ -403,10 +407,10 @@ def prototype_twitter_HRED_StandardBias():
     state = prototype_state()
 
     # Fill your paths here!
-    state['train_dialogues'] = "../TwitterData/Training.dialogues.pkl"
-    state['test_dialogues'] = "../TwitterData/Test.dialogues.pkl"
-    state['valid_dialogues'] = "../TwitterData/Validation.dialogues.pkl"
-    state['dictionary'] = "../TwitterData/Dataset.dict.pkl"
+    state['train_dialogues'] = "data/TwitterData/Training.dialogues.pkl"
+    state['test_dialogues'] = "data/TwitterData/Test.dialogues.pkl"
+    state['valid_dialogues'] = "data/TwitterData/Validation.dialogues.pkl"
+    state['dictionary'] = "data/TwitterData/Dataset.dict.pkl"
     state['save_dir'] = "Output"
 
     state['max_grad_steps'] = 80
@@ -447,10 +451,10 @@ def prototype_twitter_VHRED():
     state = prototype_state()
 
     # Fill your paths here!
-    state['train_dialogues'] = "../TwitterData/Training.dialogues.pkl"
-    state['test_dialogues'] = "../TwitterData/Test.dialogues.pkl"
-    state['valid_dialogues'] = "../TwitterData/Validation.dialogues.pkl"
-    state['dictionary'] = "../TwitterData/Dataset.dict.pkl"
+    state['train_dialogues'] = "data/TwitterData/Training.dialogues.pkl"
+    state['test_dialogues'] = "data/TwitterData/Test.dialogues.pkl"
+    state['valid_dialogues'] = "data/TwitterData/Validation.dialogues.pkl"
+    state['dictionary'] = "data/TwitterData/Dataset.dict.pkl"
     state['save_dir'] = "Output"
 
     state['max_grad_steps'] = 80
@@ -506,10 +510,10 @@ def prototype_twitter_VHRED_StandardBias():
     state = prototype_state()
 
     # Fill your paths here!
-    state['train_dialogues'] = "../TwitterData/Training.dialogues.pkl"
-    state['test_dialogues'] = "../TwitterData/Test.dialogues.pkl"
-    state['valid_dialogues'] = "../TwitterData/Validation.dialogues.pkl"
-    state['dictionary'] = "../TwitterData/Dataset.dict.pkl"
+    state['train_dialogues'] = "data/TwitterData/Training.dialogues.pkl"
+    state['test_dialogues'] = "data/TwitterData/Test.dialogues.pkl"
+    state['valid_dialogues'] = "data/TwitterData/Validation.dialogues.pkl"
+    state['dictionary'] = "data/TwitterData/Dataset.dict.pkl"
     state['save_dir'] = "Output"
 
     state['max_grad_steps'] = 80
@@ -577,10 +581,10 @@ def prototype_ubuntu_LSTM():
     state['off_screen_sym'] = -1 # off screen symbol <off_screen>
     state['pause_sym'] = -1 # pause symbol <pause>
 
-    state['train_dialogues'] = "../UbuntuData/Training.dialogues.pkl"
-    state['test_dialogues'] = "../UbuntuData/Test.dialogues.pkl"
-    state['valid_dialogues'] = "../UbuntuData/Validation.dialogues.pkl"
-    state['dictionary'] = "../UbuntuData/Dataset.dict.pkl"
+    state['train_dialogues'] = "data/UbuntuData/Training.dialogues.pkl"
+    state['test_dialogues'] = "data/UbuntuData/Test.dialogues.pkl"
+    state['valid_dialogues'] = "data/UbuntuData/Validation.dialogues.pkl"
+    state['dictionary'] = "data/UbuntuData/Dataset.dict.pkl"
     state['save_dir'] = "Output"
 
     state['max_grad_steps'] = 80
@@ -634,10 +638,10 @@ def prototype_ubuntu_HRED():
     state['off_screen_sym'] = -1 # off screen symbol <off_screen>
     state['pause_sym'] = -1 # pause symbol <pause>
 
-    state['train_dialogues'] = "../UbuntuData/Training.dialogues.pkl"
-    state['test_dialogues'] = "../UbuntuData/Test.dialogues.pkl"
-    state['valid_dialogues'] = "../UbuntuData/Validation.dialogues.pkl"
-    state['dictionary'] = "../UbuntuData/Dataset.dict.pkl"
+    state['train_dialogues'] = "data/UbuntuData/Training.dialogues.pkl"
+    state['test_dialogues'] = "data/UbuntuData/Test.dialogues.pkl"
+    state['valid_dialogues'] = "data/UbuntuData/Validation.dialogues.pkl"
+    state['dictionary'] = "data/UbuntuData/Dataset.dict.pkl"
     state['save_dir'] = "Output"
 
     state['max_grad_steps'] = 80
@@ -686,10 +690,10 @@ def prototype_ubuntu_VHRED():
     state['off_screen_sym'] = -1 # off screen symbol <off_screen>
     state['pause_sym'] = -1 # pause symbol <pause>
 
-    state['train_dialogues'] = "../UbuntuData/Training.dialogues.pkl"
-    state['test_dialogues'] = "../UbuntuData/Test.dialogues.pkl"
-    state['valid_dialogues'] = "../UbuntuData/Validation.dialogues.pkl"
-    state['dictionary'] = "../UbuntuData/Dataset.dict.pkl"
+    state['train_dialogues'] = "data/UbuntuData/Training.dialogues.pkl"
+    state['test_dialogues'] = "data/UbuntuData/Test.dialogues.pkl"
+    state['valid_dialogues'] = "data/UbuntuData/Validation.dialogues.pkl"
+    state['dictionary'] = "data/UbuntuData/Dataset.dict.pkl"
     state['save_dir'] = "Output"
 
     state['max_grad_steps'] = 80
@@ -730,3 +734,64 @@ def prototype_ubuntu_VHRED():
 
     return state
 
+
+
+def prototype_cornell_VHRED():
+    state = prototype_state()
+
+    state['end_sym_utterance'] = '</s>'
+
+    state['unk_sym'] = 0 # Unknown word token <unk>
+    state['eos_sym'] = 1 # end-of-utterance symbol </s>
+    state['eod_sym'] = -1 # end-of-dialogue symbol </d>
+    state['first_speaker_sym'] = -1 # first speaker symbol <first_speaker>
+    state['second_speaker_sym'] = -1 # second speaker symbol <second_speaker>
+    state['third_speaker_sym'] = -1 # third speaker symbol <third_speaker>
+    state['minor_speaker_sym'] = -1 # minor speaker symbol <minor_speaker>
+    state['voice_over_sym'] = -1 # voice over symbol <voice_over>
+    state['off_screen_sym'] = -1 # off screen symbol <off_screen>
+    state['pause_sym'] = -1 # pause symbol <pause>
+
+    state['train_dialogues'] = "data/CornellMovie/Training.dialogues.pkl"
+    state['test_dialogues'] = "data/CornellMovie/Training.dialogues.pkl"
+    state['valid_dialogues'] = "data/CornellMovie/Training.dialogues.pkl"
+    state['dictionary'] = "data/CornellMovie/Training.dict.pkl"
+    state['save_dir'] = "Output"
+
+    state['max_grad_steps'] = 80
+
+    state['valid_freq'] = 5000
+
+    state['prefix'] = "Cornell_"
+    state['updater'] = 'adam'
+
+    state['bidirectional_utterance_encoder'] = False
+    state['deep_dialogue_input'] = True
+    state['deep_out'] = True
+
+    state['bs'] = 80
+
+    state['reset_utterance_decoder_at_end_of_utterance'] = True
+    state['reset_utterance_encoder_at_end_of_utterance'] = True
+    state['utterance_decoder_gating'] = 'LSTM'
+
+    state['lr'] = 0.0002
+
+    state['qdim_encoder'] = 100
+    state['qdim_decoder'] = 100
+    state['sdim'] = 300
+    state['rankdim'] = 100
+
+    # Latent variable configuration
+    state['add_latent_gaussian_per_utterance'] = True
+    state['latent_gaussian_per_utterance_dim'] = 100
+    state['scale_latent_variable_variances'] = 0.1
+    state['condition_latent_variable_on_dialogue_encoder'] = True
+    state['train_latent_gaussians_with_kl_divergence_annealing'] = True
+    state['kl_divergence_annealing_rate'] = 1.0/75000.0
+    state['decoder_drop_previous_input_tokens'] = True
+    state['decoder_drop_previous_input_tokens_rate'] = 0.75
+
+    state['patience'] = 20
+
+    return state

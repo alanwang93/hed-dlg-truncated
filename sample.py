@@ -75,7 +75,7 @@ def main():
     state_path = args.model_prefix + "_state.pkl"
     model_path = args.model_prefix + "_model.npz"
 
-    with open(state_path) as src:
+    with open(state_path, 'rb') as src:
         state.update(cPickle.load(src))
 
     logging.basicConfig(level=getattr(logging, state['level']), format="%(asctime)s: %(name)s: %(levelname)s: %(message)s")
@@ -109,7 +109,8 @@ def main():
     # Write to output file
     output_handle = open(args.output, "w")
     for context_sample in context_samples:
-        print >> output_handle, '\t'.join(context_sample)
+        output_handle.write('\t'.join(context_sample) + '\n')
+        # print('\t'.join(context_sample), output_handle)
     output_handle.close()
     print('Saving to file finished.')
     print('All done!')

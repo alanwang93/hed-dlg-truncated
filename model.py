@@ -3,7 +3,7 @@ import numpy
 import theano
 logger = logging.getLogger(__name__)
 
-# This is the list of strings required to ignore, if we're going to take a pretrained HRED model 
+# This is the list of strings required to ignore, if we're going to take a pretrained HRED model
 # and fine-tune it as a variational model.
 # parameter_strings_to_ignore = ["latent_utterance_prior", "latent_utterance_approx_posterior", "Wd_", "bd_"]
 
@@ -13,7 +13,7 @@ class Model(object):
         self.floatX = theano.config.floatX
         # Parameters of the model
         self.params = []
-    
+
     def save(self, filename):
         """
         Save the model to file `filename`

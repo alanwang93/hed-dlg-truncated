@@ -760,7 +760,7 @@ def prototype_cornell_VHRED():
 
     state['max_grad_steps'] = 80
 
-    state['valid_freq'] = 2000
+    state['valid_freq'] = 5000
 
     state['prefix'] = "Cornell_"
     state['updater'] = 'adam'
@@ -777,10 +777,10 @@ def prototype_cornell_VHRED():
 
     state['lr'] = 0.0002
 
-    state['qdim_encoder'] = 100
-    state['qdim_decoder'] = 100
-    state['sdim'] = 300
-    state['rankdim'] = 100
+    state['qdim_encoder'] = 500
+    state['qdim_decoder'] = 500
+    state['sdim'] = 1000
+    state['rankdim'] = 300
 
     # Latent variable configuration
     state['add_latent_gaussian_per_utterance'] = True
@@ -793,5 +793,53 @@ def prototype_cornell_VHRED():
     state['decoder_drop_previous_input_tokens_rate'] = 0.75
 
     state['patience'] = 20
+
+    return state
+
+def prototype_cornell_HRED():
+    state = prototype_state()
+
+    state['end_sym_utterance'] = '__eot__'
+
+    state['unk_sym'] = 0 # Unknown word token <unk>
+    state['eos_sym'] = 1 # end-of-utterance symbol </s>
+    state['eod_sym'] = -1 # end-of-dialogue symbol </d>
+    state['first_speaker_sym'] = -1 # first speaker symbol <first_speaker>
+    state['second_speaker_sym'] = -1 # second speaker symbol <second_speaker>
+    state['third_speaker_sym'] = -1 # third speaker symbol <third_speaker>
+    state['minor_speaker_sym'] = -1 # minor speaker symbol <minor_speaker>
+    state['voice_over_sym'] = -1 # voice over symbol <voice_over>
+    state['off_screen_sym'] = -1 # off screen symbol <off_screen>
+    state['pause_sym'] = -1 # pause symbol <pause>
+
+    state['train_dialogues'] = "data/CornellMovie/Training.dialogues.pkl"
+    state['test_dialogues'] = "data/CornellMovie/Test.dialogues.pkl"
+    state['valid_dialogues'] = "data/CornellMovie/Validation.dialogues.pkl"
+    state['dictionary'] = "data/CornellMovie/Training.dict.pkl"
+    state['save_dir'] = "Output"
+
+    state['max_grad_steps'] = 80
+
+    state['valid_freq'] = 5000
+
+    state['prefix'] = "UbuntuModel_"
+    state['updater'] = 'adam'
+
+    state['bidirectional_utterance_encoder'] = False
+    state['deep_dialogue_input'] = True
+    state['deep_out'] = True
+
+    state['bs'] = 80
+
+    state['reset_utterance_decoder_at_end_of_utterance'] = True
+    state['reset_utterance_encoder_at_end_of_utterance'] = True
+    state['utterance_decoder_gating'] = 'LSTM'
+
+    state['lr'] = 0.0002
+
+    state['qdim_encoder'] = 500
+    state['qdim_decoder'] = 500
+    state['sdim'] = 1000
+    state['rankdim'] = 300
 
     return state

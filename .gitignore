@@ -1,12 +1,11 @@
 # Others
 *~
 .DS_Store
-PREPARE.*
-
+models/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-state.py
+# state.py
 
 # C extensions
 *.so
